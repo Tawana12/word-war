@@ -82,6 +82,20 @@
         <button id="resultButton" class="primary-action" type="button">NEXT ROUND</button>
       </div>
 
+      <button id="pauseBtn" class="pause-button" type="button" aria-label="Pause game" title="Pause">Ⅱ</button>
+
+      <div id="pauseMenu" class="overlay pause-menu hidden" aria-modal="true" role="dialog">
+        <p class="pause-kicker">GAME PAUSED</p>
+        <h2>Pause</h2>
+        <div class="pause-actions">
+          <button id="resumeBtn" class="primary-action" type="button">RESUME</button>
+          <button id="restartRoundBtn" class="pause-secondary" type="button">RESTART ROUND</button>
+          <button id="restartMatchBtn" class="pause-secondary" type="button">RESTART MATCH</button>
+          <button id="mainMenuBtn" class="pause-secondary pause-danger" type="button">MAIN MENU</button>
+        </div>
+        <p class="pause-help">Press Esc or P to resume.</p>
+      </div>
+
       <div id="mobileControls" class="mobile-controls" aria-hidden="true">
         <div id="joystick" class="joystick" aria-label="Movement joystick">
           <div class="joystick-ring"></div>
@@ -139,6 +153,8 @@
   <script src="js/ui/instructions.js"></script>
   <script src="js/ui/mobile-controls.js"></script>
   <script src="js/features/demo-rounds.js"></script>
+  <script src="js/audio/sound-manager.js"></script>
+  <script src="js/ui/pause-menu.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

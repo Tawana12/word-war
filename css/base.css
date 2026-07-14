@@ -742,3 +742,261 @@ body {
     touch-action: manipulation;
   }
 }
+
+
+/* Final mobile landscape pass ------------------------------------------ */
+@media (pointer: coarse) and (orientation: portrait) {
+  html.touch-ui,
+  html.touch-ui body {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    background: #11151b;
+  }
+
+  html.touch-ui #wrap {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    background: #11151b;
+  }
+
+  html.touch-ui #game,
+  html.touch-ui #hudLayer,
+  html.touch-ui #gameBar,
+  html.touch-ui .mobile-controls,
+  html.touch-ui .overlay:not(.rotate-overlay),
+  html.touch-ui .portrait-tip {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html.touch-ui .rotate-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    padding:
+      max(24px, env(safe-area-inset-top))
+      max(24px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom))
+      max(24px, env(safe-area-inset-left));
+    background: #11151b;
+    visibility: visible !important;
+  }
+
+  html.touch-ui .rotate-card {
+    width: min(360px, 88vw);
+    min-height: min(420px, 72dvh);
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 12px;
+    padding: 28px 24px;
+    border: 1px solid #353c47;
+    border-radius: 18px;
+    background: #1b2027;
+    box-shadow: 0 20px 55px #0009;
+  }
+
+  html.touch-ui .rotate-card strong {
+    font-size: clamp(22px, 7vw, 30px);
+    text-align: center;
+  }
+
+  html.touch-ui .rotate-card span {
+    max-width: 250px;
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: center;
+  }
+
+  html.touch-ui .rotate-card button {
+    min-width: 170px;
+    min-height: 48px;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui,
+  html.touch-ui body {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+  }
+
+  html.touch-ui #wrap,
+  html.touch-ui #stage {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  html.touch-ui .hud {
+    z-index: 45;
+  }
+
+  html.touch-ui .team {
+    top: max(8px, env(safe-area-inset-top));
+    width: clamp(138px, 25vw, 205px);
+    min-height: 40px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 7px;
+    padding: 6px 8px;
+    border-color: #ffffff38;
+    background: #171c22d9;
+    backdrop-filter: blur(7px);
+  }
+
+  html.touch-ui .team.blue {
+    left: max(12px, env(safe-area-inset-left));
+  }
+
+  html.touch-ui .team.red {
+    right: max(12px, env(safe-area-inset-right));
+  }
+
+  html.touch-ui .team .head {
+    margin: 0;
+    font-size: clamp(9px, 1.6vw, 11px);
+  }
+
+  html.touch-ui .team .label {
+    display: none;
+  }
+
+  html.touch-ui .team .scramble {
+    min-width: 0;
+    font-size: clamp(9px, 1.45vw, 12px);
+    letter-spacing: .8px;
+    text-align: right;
+    text-overflow: ellipsis;
+  }
+
+  html.touch-ui .timer {
+    top: max(8px, env(safe-area-inset-top));
+    min-width: 64px;
+    padding: 5px 9px;
+    font-size: clamp(13px, 2.2vw, 16px);
+  }
+
+  html.touch-ui .round-status {
+    top: calc(max(8px, env(safe-area-inset-top)) + 37px);
+    padding: 2px 6px;
+    font-size: 7px;
+  }
+
+  html.touch-ui .mobile-controls {
+    z-index: 80;
+  }
+
+  html.touch-ui .joystick {
+    left: max(42px, calc(env(safe-area-inset-left) + 28px));
+    top: auto;
+    bottom: max(26px, calc(env(safe-area-inset-bottom) + 18px));
+    width: clamp(122px, 34dvh, 148px);
+    height: clamp(122px, 34dvh, 148px);
+    opacity: .52;
+    visibility: visible;
+    pointer-events: none;
+    transform: scale(.96);
+    transition: opacity .1s ease, transform .1s ease, left .12s ease, top .12s ease;
+  }
+
+  html.touch-ui .joystick.active {
+    opacity: .96;
+    transform: scale(1);
+  }
+
+  html.touch-ui .joystick-ring {
+    border: 3px solid #ffffffb0;
+    background: #0f151d78;
+    box-shadow: inset 0 0 0 12px #ffffff0c, 0 8px 24px #0008;
+  }
+
+  html.touch-ui .joystick-knob {
+    width: 48%;
+    height: 48%;
+    border-width: 3px;
+    background: #eef3f8e8;
+  }
+
+  html.touch-ui .mobile-action {
+    right: max(42px, calc(env(safe-area-inset-right) + 28px));
+    bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px));
+    width: clamp(96px, 27dvh, 118px);
+    height: clamp(96px, 27dvh, 118px);
+    padding: 9px;
+    border-width: 3px;
+    font-size: clamp(12px, 2vw, 16px);
+    line-height: 1.05;
+  }
+
+  html.touch-ui .mobile-action::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    border-radius: 50%;
+  }
+
+  html.touch-ui .rotate-overlay,
+  html.touch-ui .portrait-tip,
+  html.touch-ui #gameBar {
+    display: none !important;
+  }
+
+  html.touch-ui .overlay {
+    min-height: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-top: max(18px, env(safe-area-inset-top));
+    padding-right: max(18px, env(safe-area-inset-right));
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    padding-left: max(18px, env(safe-area-inset-left));
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .team {
+    top: max(5px, env(safe-area-inset-top));
+    min-height: 34px;
+    padding: 4px 7px;
+  }
+
+  html.touch-ui .timer {
+    top: max(5px, env(safe-area-inset-top));
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  html.touch-ui .round-status {
+    top: calc(max(5px, env(safe-area-inset-top)) + 32px);
+  }
+
+  html.touch-ui .joystick {
+    left: max(34px, calc(env(safe-area-inset-left) + 22px));
+    bottom: max(18px, calc(env(safe-area-inset-bottom) + 12px));
+    width: clamp(116px, 35dvh, 132px);
+    height: clamp(116px, 35dvh, 132px);
+  }
+
+  html.touch-ui .mobile-action {
+    right: max(34px, calc(env(safe-area-inset-right) + 22px));
+    bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+    width: clamp(88px, 27dvh, 104px);
+    height: clamp(88px, 27dvh, 104px);
+  }
+}

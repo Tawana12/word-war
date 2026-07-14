@@ -430,3 +430,355 @@
     max-width: 540px;
   }
 }
+
+
+/* Final mobile menus ---------------------------------------------------- */
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .landing-screen {
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  html.touch-ui .wordmark {
+    margin-bottom: 5px;
+    font-size: clamp(36px, 13dvh, 60px);
+    line-height: .82;
+  }
+
+  html.touch-ui .tagline {
+    margin: 6px auto 13px;
+    font-size: clamp(13px, 3.8dvh, 17px);
+  }
+
+  html.touch-ui .primary-action {
+    min-width: 170px;
+    min-height: 44px;
+    padding: 9px 20px;
+    font-size: 14px;
+  }
+
+  html.touch-ui .match-meta {
+    margin-top: 10px;
+    font-size: 9px;
+  }
+
+  html.touch-ui .role-screen {
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  html.touch-ui .role-screen h2,
+  html.touch-ui .role-list {
+    width: min(390px, 64vw);
+  }
+
+  html.touch-ui .role-screen h2 {
+    margin-bottom: 8px;
+    font-size: clamp(18px, 5dvh, 24px);
+  }
+
+  html.touch-ui .role-list {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  html.touch-ui .role-option {
+    min-height: 43px;
+    padding: 8px 12px;
+    border-radius: 7px;
+  }
+
+  html.touch-ui .role-option strong {
+    font-size: 13px;
+  }
+
+  html.touch-ui .role-option span {
+    font-size: 8px;
+  }
+
+  html.touch-ui .overlay-back {
+    top: max(10px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    min-height: 38px;
+  }
+
+  html.touch-ui .instruction-screen {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(205px, .65fr);
+    grid-template-areas:
+      'canvas role'
+      'canvas title'
+      'canvas job'
+      'canvas controls'
+      'canvas start';
+    align-content: center;
+    align-items: center;
+    column-gap: clamp(14px, 3vw, 30px);
+    row-gap: 5px;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  html.touch-ui .instruction-screen .overlay-back {
+    position: absolute;
+  }
+
+  html.touch-ui .instruction-role {
+    grid-area: role;
+    margin: 0;
+  }
+
+  html.touch-ui .instruction-screen h2 {
+    grid-area: title;
+    margin: 0 0 3px;
+    font-size: clamp(19px, 5dvh, 28px);
+  }
+
+  html.touch-ui .instruction-aim {
+    display: none;
+  }
+
+  html.touch-ui #tutorialCanvas {
+    grid-area: canvas;
+    width: 100%;
+    max-height: 72dvh;
+    margin: 0;
+  }
+
+  html.touch-ui .instruction-job {
+    grid-area: job;
+    width: auto;
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  html.touch-ui .instruction-controls {
+    grid-area: controls;
+    margin: 0;
+    font-size: 9px;
+    line-height: 1.35;
+  }
+
+  html.touch-ui .instruction-start {
+    grid-area: start;
+    justify-self: start;
+    margin-top: 5px;
+  }
+
+  html.touch-ui .result-screen {
+    justify-content: center;
+    overflow: hidden;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .landing-screen {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  html.touch-ui .wordmark {
+    font-size: clamp(32px, 12dvh, 46px);
+  }
+
+  html.touch-ui .tagline {
+    margin-bottom: 9px;
+    font-size: 12px;
+  }
+
+  html.touch-ui .match-meta,
+  html.touch-ui #modeStatus {
+    font-size: 8px;
+  }
+
+  html.touch-ui .role-screen h2,
+  html.touch-ui .role-list {
+    width: min(360px, 62vw);
+  }
+
+  html.touch-ui .role-option {
+    min-height: 38px;
+    padding: 6px 10px;
+  }
+
+  html.touch-ui .instruction-screen {
+    grid-template-columns: minmax(0, 1.55fr) minmax(185px, .6fr);
+    column-gap: 12px;
+    padding-top: 12px;
+    padding-bottom: 8px;
+  }
+
+  html.touch-ui #tutorialCanvas {
+    max-height: 68dvh;
+  }
+
+  html.touch-ui .instruction-screen h2 {
+    font-size: 18px;
+  }
+
+  html.touch-ui .instruction-job {
+    font-size: 9px;
+  }
+
+  html.touch-ui .instruction-controls {
+    font-size: 8px;
+  }
+
+  html.touch-ui .instruction-start {
+    min-width: 120px;
+    min-height: 36px;
+    padding: 6px 14px;
+    font-size: 11px;
+  }
+}
+
+/* Pause / app shell ------------------------------------------------------ */
+.pause-button {
+  position: absolute;
+  top: 72px;
+  right: 12px;
+  z-index: 90;
+  width: 38px;
+  height: 38px;
+  display: none;
+  place-items: center;
+  border: 1px solid #ffffff66;
+  border-radius: 7px;
+  background: #171b20d9;
+  color: #fff;
+  box-shadow: 0 4px 12px #0007;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+html.game-started:not(.round-ended) .pause-button {
+  display: grid;
+}
+
+html.game-paused .pause-button {
+  display: none;
+}
+
+.pause-menu {
+  z-index: 160;
+  text-align: center;
+  background: #15191ff5;
+}
+
+.pause-kicker {
+  margin-bottom: 5px;
+  color: #f1ca5c;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+}
+
+.pause-menu h2 {
+  margin-bottom: 18px;
+}
+
+.pause-actions {
+  width: min(300px, 100%);
+  display: grid;
+  gap: 9px;
+}
+
+.pause-actions .primary-action,
+.pause-secondary {
+  width: 100%;
+  min-width: 0;
+}
+
+.pause-secondary {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #596172;
+  border-radius: 6px;
+  background: #242a32;
+  color: #f1f3f6;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .6px;
+  cursor: pointer;
+}
+
+.pause-secondary:hover,
+.pause-secondary:focus-visible {
+  background: #303741;
+  border-color: #d8dde4;
+}
+
+.pause-danger {
+  color: #ffb0b0;
+  border-color: #764242;
+}
+
+.pause-help {
+  margin-top: 14px;
+  color: #929ba7;
+  font-size: 9px;
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .pause-button {
+    top: max(58px, calc(env(safe-area-inset-top) + 50px));
+    right: max(16px, calc(env(safe-area-inset-right) + 10px));
+    width: 44px;
+    height: 44px;
+    border-width: 2px;
+    font-size: 20px;
+  }
+
+  html.touch-ui .pause-menu {
+    justify-content: center;
+    overflow: auto;
+  }
+
+  html.touch-ui .pause-menu h2 {
+    margin-bottom: 10px;
+    font-size: 28px;
+  }
+
+  html.touch-ui .pause-actions {
+    width: min(540px, 74vw);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  html.touch-ui .pause-actions .primary-action,
+  html.touch-ui .pause-secondary {
+    min-height: 46px;
+    padding: 9px 12px;
+  }
+
+  html.touch-ui .pause-help {
+    margin-top: 9px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .pause-button {
+    top: max(48px, calc(env(safe-area-inset-top) + 42px));
+    width: 40px;
+    height: 40px;
+  }
+
+  html.touch-ui .pause-menu {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  html.touch-ui .pause-menu h2 {
+    margin-bottom: 7px;
+    font-size: 23px;
+  }
+
+  html.touch-ui .pause-actions .primary-action,
+  html.touch-ui .pause-secondary {
+    min-height: 39px;
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+}
