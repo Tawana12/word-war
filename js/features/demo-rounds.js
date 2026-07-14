@@ -20,7 +20,47 @@ state.demoMatch = {
   score: { blue: 0, red: 0 },
   resolving: false,
   finished: false,
+  currentAssignment: null,
 };
+
+const ROUND_ROLE_ASSIGNMENTS = Object.freeze([
+  { role: 'RUNNER', duty: null, label: 'Runner' },
+  { role: 'GUARDIAN', duty: 'SENTRY', label: 'Inner Sentry' },
+  { role: 'GUARDIAN', duty: 'WARDEN', label: 'Outer Warden' },
+  { role: 'SABOTEUR', duty: null, label: 'Saboteur' },
+]);
+
+function roundAssignmentKey(assignment) {
+  if (!assignment) return '';
+  return `${assignment.role}:${assignment.duty || ''}`;
+}
+
+function assignmentFromActor(actor) {
+  if (!actor) return null;
+  const role = publicRoleOf(actor);
+  const duty = role === 'GUARDIAN' ? (actor.guardianDuty || 'SENTRY') : null;
+  return ROUND_ROLE_ASSIGNMENTS.find(assignment =>
+    assignment.role === role && assignment.duty === duty
+  ) || ROUND_ROLE_ASSIGNMENTS[0];
+}
+
+function assignDifferentRoleForNextRound() {
+  const demo = state.demoMatch;
+  const current = demo.currentAssignment || assignmentFromActor(player);
+  const candidates = ROUND_ROLE_ASSIGNMENTS.filter(assignment =>
+    roundAssignmentKey(assignment) !== roundAssignmentKey(current)
+  );
+  const next = candidates[Math.floor(Math.random() * candidates.length)];
+  const roster = createSessionRoster(next.role, next.duty);
+
+  if (!roster) return current;
+
+  player = roster.player;
+  bots = roster.bots;
+  ACTORS = [player, ...bots];
+  demo.currentAssignment = next;
+  return next;
+}
 
 function updateRoundHud() {
   const demo = state.demoMatch;
@@ -199,11 +239,22 @@ function applyRoundWords(index) {
   if (timerEl) timerEl.textContent = '1:30';
 }
 
-function startDemoRound(index = 0) {
+function startDemoRound(index = 0, options = {}) {
   const demo = state.demoMatch;
+  const advancingToNewRound = index > demo.roundIndex;
+  const shouldChangeRole = options.changeRole ?? advancingToNewRound;
+  let assignment = demo.currentAssignment || assignmentFromActor(player);
+
+  if (shouldChangeRole && advancingToNewRound) {
+    assignment = assignDifferentRoleForNextRound();
+  } else {
+    demo.currentAssignment = assignment;
+  }
+
   demo.roundIndex = index;
   demo.resolving = false;
   demo.finished = false;
+  document.documentElement.classList.remove('round-ended');
 
   applyRoundWords(index);
   clearRoundObjects();
@@ -222,7 +273,10 @@ function startDemoRound(index = 0) {
   updateActorTreeCover();
   updateContextHint();
   updateRoleStrip(player.role, player.guardianDuty || null);
-  msg(`Round ${index + 1}. Form ${getTeamWord(player.team)}.`);
+  const roleNote = advancingToNewRound && assignment
+    ? ` New role: ${assignment.label}.`
+    : '';
+  msg(`Round ${index + 1}.${roleNote} Form ${getTeamWord(player.team)}.`);
 }
 
 function showRoundResult(winnerTeam, reason) {
@@ -255,7 +309,10 @@ function showRoundResult(winnerTeam, reason) {
   }
 
   if (resultTextEl) resultTextEl.textContent = reason;
-  if (resultButtonEl) resultButtonEl.textContent = final ? 'PLAY AGAIN' : 'NEXT ROUND';
+  if (resultButtonEl) {
+    resultButtonEl.textContent = final ? 'PLAY AGAIN' : 'NEXT ROUND · NEW ROLE';
+  }
+  document.documentElement.classList.add('round-ended');
   roundScreenEl?.classList.remove('hidden');
 }
 

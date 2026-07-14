@@ -7,6 +7,14 @@ let pendingRole = null;
 let pendingDuty = null;
 
 function frame(now) {
+  if (state.paused) {
+    last = now;
+    accumulator = 0;
+    draw(1);
+    requestAnimationFrame(frame);
+    return;
+  }
+
   let frameDt = (now - last) / 1000;
   last = now;
   if (frameDt > CONFIG.MAX_FRAME_DT) frameDt = CONFIG.MAX_FRAME_DT;
@@ -54,6 +62,9 @@ function startGame(playerRole, playerDuty = null) {
   player = roster.player;
   bots = roster.bots;
   ACTORS = [player, ...bots];
+  state.paused = false;
+  document.documentElement.classList.add('game-started');
+  document.documentElement.classList.remove('round-ended', 'game-paused');
   updateRoleStrip(player.role, player.guardianDuty || null);
   initializeDemoMatch();
   updateActorTreeCover();
@@ -69,7 +80,7 @@ function startGame(playerRole, playerDuty = null) {
 
   if (!countdownId) {
     countdownId = setInterval(() => {
-      if (!player || state.over) return;
+      if (!player || state.over || state.paused) return;
 
       state.seconds = Math.max(0, state.seconds - 1);
       timerEl.textContent =
@@ -87,5 +98,7 @@ function initializeDemoMatch() {
   state.demoMatch.score.red = 0;
   state.demoMatch.finished = false;
   state.demoMatch.resolving = false;
-  startDemoRound(0);
+  state.demoMatch.currentAssignment = assignmentFromActor(player);
+  document.documentElement.classList.remove('round-ended');
+  startDemoRound(0, { changeRole: false });
 }

@@ -13,7 +13,8 @@ const landscapeBtn = document.querySelector('#landscapeBtn');
 
 const touchUI =
   window.matchMedia('(pointer: coarse)').matches ||
-  navigator.maxTouchPoints > 0;
+  navigator.maxTouchPoints > 0 ||
+  new URLSearchParams(location.search).has('touch');
 
 // Other gameplay files can read this at runtime without changing desktop rules.
 globalThis.__wordWarsTouchUI = touchUI;
@@ -26,6 +27,7 @@ let joystickOriginY = 0;
 let mobileCameraTop = null;
 let mobileLabelTimer = 0;
 let mobileTargetLock = { item: null, until: 0 };
+let mobileActionBufferedUntil = 0;
 
 function mobileLandscapeReady() {
   return touchUI && mobileLandscapeQuery.matches;
@@ -54,7 +56,14 @@ function resetJoystick() {
   mobileInput.y = 0;
   mobileInput.active = false;
 
-  if (joystickEl) joystickEl.classList.remove('active');
+  if (joystickEl) {
+    joystickEl.classList.remove('active');
+    // Return to the comfortable fixed home position after each gesture.
+    joystickEl.style.left = '';
+    joystickEl.style.top = '';
+    joystickEl.style.right = '';
+    joystickEl.style.bottom = '';
+  }
   if (joystickKnobEl) {
     joystickKnobEl.style.transform = 'translate(-50%, -50%)';
   }
@@ -64,23 +73,23 @@ function placeFloatingJoystick(clientX, clientY) {
   if (!mobileStageEl || !joystickEl) return;
 
   const stageRect = mobileStageEl.getBoundingClientRect();
-  const size = joystickEl.offsetWidth || 112;
+  const size = joystickEl.offsetWidth || 132;
   const half = size / 2;
-  const safeLeft = half + 14;
-  const safeRight = Math.min(
-    stageRect.width * 0.54 - half,
-    stageRect.width - half - 14
-  );
-  const safeTop = half + 54;
-  const safeBottom = stageRect.height - half - 14;
-  const localX = Math.max(
+
+  // Keep the stick away from notches, edges and the top HUD. It can still
+  // float under the thumb, but never gets trapped in a corner.
+  const horizontalInset = Math.max(34, stageRect.width * 0.035);
+  const bottomInset = Math.max(24, stageRect.height * 0.055);
+  const hudClearance = Math.max(58, stageRect.height * 0.13);
+  const safeLeft = half + horizontalInset;
+  const safeRight = Math.max(
     safeLeft,
-    Math.min(safeRight, clientX - stageRect.left)
+    Math.min(stageRect.width * 0.49 - half, stageRect.width - half - horizontalInset)
   );
-  const localY = Math.max(
-    safeTop,
-    Math.min(safeBottom, clientY - stageRect.top)
-  );
+  const safeTop = half + hudClearance;
+  const safeBottom = Math.max(safeTop, stageRect.height - half - bottomInset);
+  const localX = Math.max(safeLeft, Math.min(safeRight, clientX - stageRect.left));
+  const localY = Math.max(safeTop, Math.min(safeBottom, clientY - stageRect.top));
 
   joystickOriginX = stageRect.left + localX;
   joystickOriginY = stageRect.top + localY;
@@ -94,7 +103,7 @@ function placeFloatingJoystick(clientX, clientY) {
 function updateJoystickFromPoint(clientX, clientY) {
   if (!joystickEl || !joystickKnobEl) return;
 
-  const maxRadius = (joystickEl.offsetWidth || 112) * 0.35;
+  const maxRadius = (joystickEl.offsetWidth || 132) * 0.36;
   let dx = clientX - joystickOriginX;
   let dy = clientY - joystickOriginY;
   let distance = Math.hypot(dx, dy);
@@ -112,7 +121,7 @@ function updateJoystickFromPoint(clientX, clientY) {
     : (normalized - deadzone) / (1 - deadzone);
 
   // Precise near the centre; full running speed arrives before the rim.
-  const magnitude = Math.pow(linearMagnitude, 0.82);
+  const magnitude = Math.pow(linearMagnitude, 0.88);
   const directionLength = Math.hypot(dx, dy) || 1;
 
   mobileInput.x = (dx / directionLength) * magnitude;
@@ -280,11 +289,22 @@ function triggerMobileAction(event) {
     ? getContextTarget()
     : null;
   mobileActionBtn?.classList.add('pressed');
+
+  const hadInventory = Boolean(player.inv);
   action(player);
 
-  if (context?.allowed !== false) {
-    navigator.vibrate?.(context?.kind === 'item' ? 14 : 9);
+  if (context && context.allowed !== false) {
+    mobileActionBufferedUntil = 0;
+    navigator.vibrate?.(context.kind === 'item' ? 14 : 9);
+    return;
   }
+
+  // A short mobile-only input buffer makes pickup feel forgiving while the
+  // player is still gliding into range. Context-free inventory actions still
+  // run immediately and are never repeated.
+  mobileActionBufferedUntil = !context && !hadInventory
+    ? performance.now() / 1000 + (CONFIG.MOBILE_ACTION_BUFFER_TIME || 0.24)
+    : 0;
 }
 
 mobileActionBtn?.addEventListener('pointerdown', triggerMobileAction, {
@@ -307,12 +327,25 @@ function updateMobileCamera(dt = 1 / 60, immediate = false) {
   if (!mobileLandscapeReady()) {
     mobileCameraTop = null;
     mobileGameCanvas.style.transform = '';
+    mobileGameCanvas.style.width = '';
+    mobileGameCanvas.style.left = '';
+    mobileGameCanvas.style.right = '';
     return;
   }
 
   const rect = mobileStageEl.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
-  const scale = rect.width / CONFIG.W;
+
+  // Keep desktop untouched. On landscape phones, render the arena slightly
+  // narrower and centre it so players can see more of the battlefield.
+  const zoom = Math.max(0.78, Math.min(1, CONFIG.MOBILE_CAMERA_ZOOM || 0.90));
+  const canvasWidth = rect.width * zoom;
+  const canvasLeft = (rect.width - canvasWidth) / 2;
+  mobileGameCanvas.style.width = `${canvasWidth.toFixed(2)}px`;
+  mobileGameCanvas.style.left = `${canvasLeft.toFixed(2)}px`;
+  mobileGameCanvas.style.right = 'auto';
+
+  const scale = canvasWidth / CONFIG.W;
   const renderedHeight = CONFIG.H * scale;
   let desiredTop;
 
@@ -343,7 +376,25 @@ tick = function mobileControlsTick(dt) {
   mobileControlsTickBase(dt);
   updateMobileCamera(dt);
 
-  mobileControlsEl?.classList.toggle('game-active', mobileGameIsActive());
+  const active = mobileGameIsActive();
+  mobileControlsEl?.classList.toggle('game-active', active);
+
+  // Consume a slightly early action as soon as a valid target comes into
+  // range. This is especially useful while steering with the left thumb.
+  const now = performance.now() / 1000;
+  if (active && mobileActionBufferedUntil > now) {
+    const bufferedContext = typeof getContextTarget === 'function'
+      ? getContextTarget()
+      : null;
+    if (bufferedContext && bufferedContext.allowed !== false) {
+      action(player);
+      mobileActionBufferedUntil = 0;
+      navigator.vibrate?.(bufferedContext.kind === 'item' ? 14 : 9);
+    }
+  } else if (mobileActionBufferedUntil && mobileActionBufferedUntil <= now) {
+    mobileActionBufferedUntil = 0;
+  }
+
   mobileLabelTimer -= dt;
   if (mobileLabelTimer <= 0) {
     const context = typeof getContextTarget === 'function'
@@ -400,6 +451,9 @@ async function toggleFullscreen() {
 
 fullscreenBtn?.addEventListener('click', toggleFullscreen);
 landscapeBtn?.addEventListener('click', enterLandscapeFullscreen);
+document.querySelector('#startMatchBtn')?.addEventListener('click', () => {
+  if (touchUI) enterLandscapeFullscreen();
+});
 
 document.addEventListener('fullscreenchange', () => {
   if (fullscreenBtn) {
