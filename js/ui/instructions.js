@@ -42,7 +42,7 @@ function openInstructionScreen(role, duty = null) {
   if (instructionJobEl) instructionJobEl.textContent = copy.job;
   if (instructionControlsEl) {
     instructionControlsEl.textContent = touchUI
-      ? 'Move with the analog stick · tap ACT on the highlighted target'
+      ? 'Left thumb moves · the right button names the exact action or tile'
       : 'Move with WASD or arrows · press Space on the highlighted target';
   }
 

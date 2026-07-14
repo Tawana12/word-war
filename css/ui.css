@@ -375,3 +375,58 @@
     font-size: 12px;
   }
 }
+
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .landing-screen {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  html.touch-ui .role-screen {
+    justify-content: center;
+    padding-top: 30px;
+    padding-bottom: 12px;
+  }
+
+  html.touch-ui .role-screen h2,
+  html.touch-ui .role-list {
+    width: min(620px, 82vw);
+  }
+
+  html.touch-ui .role-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  html.touch-ui .role-option {
+    min-height: 50px;
+  }
+
+  html.touch-ui .instruction-screen {
+    padding-top: 20px;
+    padding-bottom: 10px;
+  }
+
+  html.touch-ui #tutorialCanvas {
+    width: min(660px, 86vw);
+  }
+
+  html.touch-ui .instruction-controls {
+    color: #d5dae1;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 420px) {
+  html.touch-ui .instruction-aim {
+    display: none;
+  }
+
+  html.touch-ui #tutorialCanvas {
+    width: min(590px, 80vw);
+  }
+
+  html.touch-ui .instruction-job {
+    max-width: 540px;
+  }
+}

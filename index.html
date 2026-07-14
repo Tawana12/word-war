@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <title>Word Wars</title>
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/ui.css" />
@@ -91,6 +91,15 @@
       </div>
 
       <div id="portraitTip" class="portrait-tip">Landscape gives you the clearest view.</div>
+
+      <div id="rotateOverlay" class="rotate-overlay" aria-live="polite">
+        <div class="rotate-card">
+          <div class="rotate-phone" aria-hidden="true"></div>
+          <strong>Rotate to landscape</strong>
+          <span>Word Wars is built for two-thumb play.</span>
+          <button id="landscapeBtn" type="button">FULL SCREEN</button>
+        </div>
+      </div>
     </section>
 
     <footer id="gameBar">
