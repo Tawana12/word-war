@@ -142,7 +142,7 @@
             const turnDot =
               (player.inputX / currentLength) * (ix / rawLength) +
               (player.inputY / currentLength) * (iy / rawLength);
-            if (turnDot < 0.45) {
+            if (turnDot < 0.70) {
               inputRate = CONFIG.MOBILE_TURN_SMOOTH_RATE || inputRate;
             }
           }
@@ -165,7 +165,8 @@
         }
 
         if (smoothLength > 0.08) {
-          const facingBlend = 1 - Math.exp(-10 * dt);
+          const facingRate = usingAnalog ? 14 : 10;
+          const facingBlend = 1 - Math.exp(-facingRate * dt);
           const faceX = player.inputX / smoothLength;
           const faceY = player.inputY / smoothLength;
           player.facingX += (faceX - player.facingX) * facingBlend;

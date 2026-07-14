@@ -18,12 +18,12 @@
         PLAYER_INPUT_DEADZONE: 0.012,
         // Mobile keeps quick straight-line response, but sharp direction
         // changes use a gentler rate in the renderer to remove thumb jitter.
-        MOBILE_INPUT_SMOOTH_RATE: 25,
-        MOBILE_TURN_SMOOTH_RATE: 14.5,
-        MOBILE_RELEASE_SMOOTH_RATE: 27,
-        MOBILE_JOYSTICK_DEADZONE: 0.028,
-        MOBILE_JOYSTICK_FULL_SPEED_AT: 0.66,
-        MOBILE_JOYSTICK_RESPONSE_CURVE: 0.84,
+        MOBILE_INPUT_SMOOTH_RATE: 28,
+        MOBILE_TURN_SMOOTH_RATE: 20.5,
+        MOBILE_RELEASE_SMOOTH_RATE: 24,
+        MOBILE_JOYSTICK_DEADZONE: 0.045,
+        MOBILE_JOYSTICK_FULL_SPEED_AT: 0.72,
+        MOBILE_JOYSTICK_RESPONSE_CURVE: 0.98,
         MOBILE_SPEED_MULTIPLIER: 1.08,
         MOBILE_PICKUP_ASSIST: 27,
         MOBILE_TARGET_RELEASE_PAD: 24,

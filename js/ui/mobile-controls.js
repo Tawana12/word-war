@@ -109,18 +109,17 @@ function placeFloatingJoystick(clientX, clientY) {
   const size = joystickEl.offsetWidth || 132;
   const half = size / 2;
 
-  // Keep the stick away from notches, edges and the top HUD. It can still
-  // float under the thumb, but never gets trapped in a corner.
-  const horizontalInset = Math.max(52, stageRect.width * 0.055);
-  const bottomInset = Math.max(40, stageRect.height * 0.10);
-  const hudClearance = Math.max(66, stageRect.height * 0.15);
-  const safeLeft = half + horizontalInset;
+  // Spawn directly beneath the thumb. Only a small safety margin keeps the
+  // ring usable near the screen edge; it is no longer forced far inward where
+  // it can cover letters, word slots or nearby characters.
+  const edgeInset = 10;
+  const safeLeft = half + edgeInset;
   const safeRight = Math.max(
     safeLeft,
-    Math.min(stageRect.width * 0.54 - half, stageRect.width - half - horizontalInset)
+    Math.min(stageRect.width * 0.58 - half, stageRect.width - half - edgeInset)
   );
-  const safeTop = half + hudClearance;
-  const safeBottom = Math.max(safeTop, stageRect.height - half - bottomInset);
+  const safeTop = half + edgeInset;
+  const safeBottom = Math.max(safeTop, stageRect.height - half - edgeInset);
   const localX = Math.max(safeLeft, Math.min(safeRight, clientX - stageRect.left));
   const localY = Math.max(safeTop, Math.min(safeBottom, clientY - stageRect.top));
 
