@@ -126,13 +126,28 @@
           rawLength = 1;
         }
 
-        const inputRate = rawLength
+        let inputRate = rawLength
           ? (usingAnalog
               ? CONFIG.MOBILE_INPUT_SMOOTH_RATE
               : CONFIG.PLAYER_INPUT_SMOOTH_RATE)
           : (usingAnalog
               ? CONFIG.MOBILE_RELEASE_SMOOTH_RATE
               : CONFIG.PLAYER_RELEASE_SMOOTH_RATE);
+
+        // Pointer samples can wobble when a thumb changes direction. Keep
+        // forward movement responsive, but soften only sharp analog turns.
+        if (usingAnalog && rawLength > 0.001) {
+          const currentLength = Math.hypot(player.inputX, player.inputY);
+          if (currentLength > 0.08) {
+            const turnDot =
+              (player.inputX / currentLength) * (ix / rawLength) +
+              (player.inputY / currentLength) * (iy / rawLength);
+            if (turnDot < 0.45) {
+              inputRate = CONFIG.MOBILE_TURN_SMOOTH_RATE || inputRate;
+            }
+          }
+        }
+
         const inputBlend = 1 - Math.exp(-inputRate * dt);
 
         player.inputX += (ix - player.inputX) * inputBlend;

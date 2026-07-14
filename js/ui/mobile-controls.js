@@ -111,13 +111,13 @@ function placeFloatingJoystick(clientX, clientY) {
 
   // Keep the stick away from notches, edges and the top HUD. It can still
   // float under the thumb, but never gets trapped in a corner.
-  const horizontalInset = Math.max(34, stageRect.width * 0.035);
-  const bottomInset = Math.max(24, stageRect.height * 0.055);
-  const hudClearance = Math.max(58, stageRect.height * 0.13);
+  const horizontalInset = Math.max(52, stageRect.width * 0.055);
+  const bottomInset = Math.max(40, stageRect.height * 0.10);
+  const hudClearance = Math.max(66, stageRect.height * 0.15);
   const safeLeft = half + horizontalInset;
   const safeRight = Math.max(
     safeLeft,
-    Math.min(stageRect.width * 0.49 - half, stageRect.width - half - horizontalInset)
+    Math.min(stageRect.width * 0.54 - half, stageRect.width - half - horizontalInset)
   );
   const safeTop = half + hudClearance;
   const safeBottom = Math.max(safeTop, stageRect.height - half - bottomInset);

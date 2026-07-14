@@ -1000,3 +1000,31 @@ body {
     height: clamp(88px, 27dvh, 104px);
   }
 }
+
+
+/* Comfortable mobile control spacing ------------------------------------
+   Keep both thumb controls inside the screen rather than pinning them to
+   the corners. Inline floating-stick positions are also clamped in JS. */
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .joystick {
+    left: clamp(54px, 7vw, 88px);
+    bottom: clamp(40px, 9dvh, 70px);
+  }
+
+  html.touch-ui .mobile-action {
+    right: clamp(54px, 7vw, 88px);
+    bottom: clamp(42px, 10dvh, 76px);
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .joystick {
+    left: clamp(42px, 6vw, 62px);
+    bottom: clamp(28px, 8dvh, 42px);
+  }
+
+  html.touch-ui .mobile-action {
+    right: clamp(42px, 6vw, 62px);
+    bottom: clamp(30px, 8.5dvh, 46px);
+  }
+}

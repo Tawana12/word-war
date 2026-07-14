@@ -1196,3 +1196,27 @@ html.game-started .game-utilities {
     top: max(43px, calc(env(safe-area-inset-top) + 38px));
   }
 }
+
+
+/* Mobile utility breathing room -----------------------------------------
+   Fullscreen remains permanently available in the top-right, while both
+   utility buttons sit clear of the device edge and HUD. */
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui.game-started .game-utilities {
+    top: max(62px, calc(env(safe-area-inset-top) + 54px));
+    right: max(18px, calc(env(safe-area-inset-right) + 14px));
+    gap: 8px;
+  }
+
+  html.touch-ui:not(.game-started) .game-utilities {
+    top: max(14px, calc(env(safe-area-inset-top) + 8px));
+    right: max(18px, calc(env(safe-area-inset-right) + 14px));
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui.game-started .game-utilities {
+    top: max(47px, calc(env(safe-area-inset-top) + 41px));
+    right: max(16px, calc(env(safe-area-inset-right) + 12px));
+  }
+}
