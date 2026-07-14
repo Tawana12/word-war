@@ -161,7 +161,16 @@
         }
 
         decayTimers(player, dt);
-        driveActor(player, player.inputX, player.inputY, dt, false);
+        const mobileSpeedMultiplier = usingAnalog
+          ? (CONFIG.MOBILE_SPEED_MULTIPLIER || 1)
+          : 1;
+        driveActor(
+          player,
+          player.inputX * mobileSpeedMultiplier,
+          player.inputY * mobileSpeedMultiplier,
+          dt,
+          false
+        );
 
         revealHiddenLetters();
         for (const b of bots) updateBot(b, dt);
@@ -540,7 +549,7 @@
       }
 
       function draw(alpha = 1) {
-        ctx.clearRect(0, 0, CONFIG.W, CONFIG.H); ctx.fillStyle = '#dcb37b'; ctx.fillRect(0, 0, CONFIG.W, CONFIG.H);
+        ctx.clearRect(0, 0, CONFIG.W, CONFIG.H); ctx.fillStyle = '#8d908c'; ctx.fillRect(0, 0, CONFIG.W, CONFIG.H);
         drawBases(); drawPhysicalSlots(); drawBlueprints(); drawWalls(); drawSupplyPads();
         drawTreeTrunks(); drawItems(); drawExplosions(); drawActors(alpha); drawTreeCanopies(); drawWorldEffects();
         if (state.over && player) drawGameOverOverlay();

@@ -149,12 +149,18 @@ function updateJoystickFromPoint(clientX, clientY) {
 
   const normalized = maxRadius ? distance / maxRadius : 0;
   const deadzone = CONFIG.MOBILE_JOYSTICK_DEADZONE;
+  const fullSpeedAt = Math.max(
+    deadzone + 0.05,
+    Math.min(1, CONFIG.MOBILE_JOYSTICK_FULL_SPEED_AT || 0.70)
+  );
   const linearMagnitude = normalized <= deadzone
     ? 0
-    : (normalized - deadzone) / (1 - deadzone);
+    : Math.min(1, (normalized - deadzone) / (fullSpeedAt - deadzone));
 
-  // Precise near the centre; full running speed arrives before the rim.
-  const magnitude = Math.pow(linearMagnitude, 0.88);
+  // Mobile reaches running speed before the rim, while the centre still
+  // allows small, controlled adjustments around letters and walls.
+  const responseCurve = CONFIG.MOBILE_JOYSTICK_RESPONSE_CURVE || 0.76;
+  const magnitude = Math.pow(linearMagnitude, responseCurve);
   const directionLength = Math.hypot(dx, dy) || 1;
 
   mobileInput.x = (dx / directionLength) * magnitude;
@@ -301,8 +307,13 @@ function actionLabelFromContext(target = null) {
     return 'ACT';
   }
 
+  if (context.kind === 'raider') {
+    if (typeof isOuterWarden === 'function' && isOuterWarden(player)) {
+      return 'BLOCK';
+    }
+    return 'SHOOT';
+  }
   if (context.allowed === false) return 'BLOCKED';
-  if (context.kind === 'raider') return 'SHOOT';
   if (context.kind === 'wall') return 'BUILD';
   if (context.kind === 'item') return itemActionLabel(context.item);
   if (context.kind === 'slot') {

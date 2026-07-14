@@ -445,8 +445,8 @@ getContextTarget = function guardianZoneContextTarget() {
       return {
         kind: 'raider',
         actor: threat,
-        allowed: true,
-        text: 'Block the intruder physically — Outer Warden cannot shoot',
+        allowed: false,
+        text: 'Move into the intruder to block them — Outer Warden does not shoot',
       };
     }
   }

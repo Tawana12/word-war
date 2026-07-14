@@ -137,8 +137,29 @@ function drawRoleHats(alpha = 1) {
   }
 }
 
+function drawLocalPlayerHighlight(alpha = 1) {
+  if (!player || player.alive === false) return;
+
+  const x = player.prevX + (player.x - player.prevX) * alpha;
+  const y = player.prevY + (player.y - player.prevY) * alpha;
+  const pulse = 1 + Math.sin(simTime * 5.2) * 0.08;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, (player.r + 8) * pulse, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 226, 84, 0.13)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 226, 84, 0.96)';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = '#ffe254';
+  ctx.shadowBlur = 10;
+  ctx.stroke();
+  ctx.restore();
+}
+
 const roleVisualDrawActorsBase = drawActors;
 drawActors = function roleVisualDrawActors(alpha = 1) {
+  drawLocalPlayerHighlight(alpha);
   roleVisualDrawActorsBase(alpha);
   drawRoleHats(alpha);
 };

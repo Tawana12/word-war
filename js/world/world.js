@@ -863,8 +863,9 @@
         raider.stuck = 0;
         raider.interceptFlash = 0.42;
 
-        defender.vx -= dx * 105;
-        defender.vy -= dy * 105;
+        const recoil = CONFIG.DEFENDER_INTERCEPT_RECOIL || 55;
+        defender.vx -= dx * recoil;
+        defender.vy -= dy * recoil;
         defender.target = null;
         defender.targetCommit = 0;
         defender.thinkTimer = 0;
