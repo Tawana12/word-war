@@ -419,34 +419,64 @@ tick = function mobileControlsTick(dt) {
   }
 };
 
+function activeFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+async function requestGameFullscreen() {
+  const request = gameWrapEl?.requestFullscreen || gameWrapEl?.webkitRequestFullscreen;
+  if (!request) return false;
+  await request.call(gameWrapEl);
+  return true;
+}
+
+async function exitGameFullscreen() {
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  if (!exit) return false;
+  await exit.call(document);
+  return true;
+}
+
+function syncFullscreenButton() {
+  if (!fullscreenBtn) return;
+  const active = Boolean(activeFullscreenElement());
+  fullscreenBtn.textContent = active ? '×' : '⛶';
+  fullscreenBtn.title = active ? 'Exit full screen' : 'Enter full screen';
+  fullscreenBtn.setAttribute(
+    'aria-label',
+    active ? 'Exit full screen' : 'Enter full screen'
+  );
+  fullscreenBtn.classList.toggle('is-fullscreen', active);
+}
+
 async function enterLandscapeFullscreen() {
   if (!touchUI) return;
   try {
-    if (!document.fullscreenElement) {
-      await gameWrapEl?.requestFullscreen?.();
-    }
+    if (!activeFullscreenElement()) await requestGameFullscreen();
   } catch (_error) {
-    // Embedded previews can block fullscreen.
+    // Embedded previews and iOS can block element fullscreen.
   }
 
   try {
     await screen.orientation?.lock?.('landscape');
   } catch (_error) {
-    // iOS and some embedded browsers require the player to rotate manually.
+    // The rotate overlay remains available when orientation lock is blocked.
   }
+  syncFullscreenButton();
 }
 
 async function toggleFullscreen() {
   try {
-    if (!document.fullscreenElement) {
-      await gameWrapEl?.requestFullscreen?.();
+    if (!activeFullscreenElement()) {
+      await requestGameFullscreen();
       if (touchUI) await screen.orientation?.lock?.('landscape');
     } else {
-      await document.exitFullscreen?.();
+      await exitGameFullscreen();
     }
   } catch (_error) {
-    // Responsive layout remains usable when fullscreen is unavailable.
+    // The responsive layout remains usable when fullscreen is unavailable.
   }
+  syncFullscreenButton();
 }
 
 fullscreenBtn?.addEventListener('click', toggleFullscreen);
@@ -455,15 +485,13 @@ document.querySelector('#startMatchBtn')?.addEventListener('click', () => {
   if (touchUI) enterLandscapeFullscreen();
 });
 
-document.addEventListener('fullscreenchange', () => {
-  if (fullscreenBtn) {
-    fullscreenBtn.textContent = document.fullscreenElement ? '×' : '⛶';
-    fullscreenBtn.title = document.fullscreenElement
-      ? 'Exit full screen'
-      : 'Toggle full screen';
-  }
+function handleFullscreenChange() {
+  syncFullscreenButton();
   updateMobileCamera(1 / 60, true);
-});
+}
+
+document.addEventListener('fullscreenchange', handleFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 
 mobileLandscapeQuery.addEventListener?.('change', syncMobileOrientation);
 window.addEventListener('resize', () => updateMobileCamera(1 / 60, true));
@@ -476,4 +504,5 @@ document.addEventListener('visibilitychange', () => {
 if (mobileControlsEl) {
   mobileControlsEl.setAttribute('aria-hidden', touchUI ? 'false' : 'true');
 }
+syncFullscreenButton();
 syncMobileOrientation();

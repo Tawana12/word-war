@@ -99,6 +99,7 @@ function initializeDemoMatch() {
   state.demoMatch.finished = false;
   state.demoMatch.resolving = false;
   state.demoMatch.currentAssignment = assignmentFromActor(player);
+  state.demoMatch.nextAssignment = null;
   document.documentElement.classList.remove('round-ended');
   startDemoRound(0, { changeRole: false });
 }

@@ -23,6 +23,7 @@ function openPauseMenu(playFx = true) {
   state.paused = true;
   document.documentElement.classList.add('game-paused');
   pauseMenuEl?.classList.remove('hidden');
+  pauseBtnEl?.setAttribute('aria-expanded', 'true');
   if (typeof resetJoystick === 'function') resetJoystick();
   if (playFx) globalThis.playGameSound?.('pause');
 }
@@ -32,6 +33,7 @@ function closePauseMenu(playFx = true) {
   state.paused = false;
   document.documentElement.classList.remove('game-paused');
   pauseMenuEl?.classList.add('hidden');
+  pauseBtnEl?.setAttribute('aria-expanded', 'false');
   if (playFx) globalThis.playGameSound?.('resume');
 }
 

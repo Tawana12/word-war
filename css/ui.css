@@ -782,3 +782,376 @@ html.game-paused .pause-button {
     font-size: 11px;
   }
 }
+
+/* Mobile / desktop parity pass ------------------------------------------ */
+.game-utilities {
+  position: absolute;
+  top: 72px;
+  right: 12px;
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  pointer-events: auto;
+}
+
+.utility-button,
+.game-utilities .pause-button,
+.game-utilities .fullscreen-btn {
+  position: static;
+  inset: auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #ffffff70;
+  border-radius: 8px;
+  background: #171b20e8;
+  color: #fff;
+  box-shadow: 0 5px 14px #0008;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.game-utilities .pause-button {
+  display: none;
+}
+
+html.game-started:not(.round-ended):not(.game-paused) .game-utilities .pause-button {
+  display: grid;
+}
+
+.game-utilities .fullscreen-btn {
+  display: grid;
+}
+
+.game-utilities .utility-button:hover,
+.game-utilities .utility-button:focus-visible {
+  border-color: #fff;
+  background: #2a313a;
+}
+
+.game-utilities .fullscreen-btn.is-fullscreen {
+  background: #f1ca5c;
+  color: #211b0d;
+  border-color: #fff1ad;
+}
+
+html.game-paused .mobile-controls {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.current-role {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  border: 1px solid #f1ca5c66;
+  border-radius: 999px;
+  background: #171b20dc;
+  color: #fff1b5;
+  box-shadow: 0 3px 10px #0005;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .55px;
+  white-space: nowrap;
+}
+
+.next-role-preview {
+  width: min(360px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin: 0 auto 16px;
+  padding: 11px 14px;
+  border: 1px solid #f1ca5c70;
+  border-radius: 9px;
+  background: #20252de8;
+  text-align: center;
+}
+
+.next-role-preview.hidden,
+.role-announcement.hidden {
+  display: none !important;
+}
+
+.next-role-preview span,
+.role-announcement span {
+  color: #f1ca5c;
+  font-size: 9px;
+  font-weight: 1000;
+  letter-spacing: 1.2px;
+}
+
+.next-role-preview strong {
+  color: #fff;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.next-role-preview small {
+  color: #b8c0ca;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.role-announcement {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 150;
+  width: min(330px, calc(100% - 40px));
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 15px 18px;
+  transform: translate(-50%, -42%) scale(.96);
+  border: 2px solid #f1ca5c;
+  border-radius: 11px;
+  background: #151a21f2;
+  box-shadow: 0 18px 42px #000b;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.role-announcement.show {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+.role-announcement strong {
+  color: #fff;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.05;
+}
+
+.role-announcement small {
+  color: #d4dae1;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.result-screen,
+.pause-menu,
+.result-screen > *,
+.pause-menu > * {
+  text-align: center;
+}
+
+#resultText {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.team.blue .scramble {
+  text-align: left;
+}
+
+.team.red .scramble {
+  text-align: right;
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .game-utilities {
+    top: max(56px, calc(env(safe-area-inset-top) + 48px));
+    right: max(10px, calc(env(safe-area-inset-right) + 8px));
+    gap: 6px;
+  }
+
+  html.touch-ui .game-utilities .utility-button {
+    width: clamp(42px, 12dvh, 48px);
+    height: clamp(42px, 12dvh, 48px);
+    border-width: 2px;
+    font-size: clamp(18px, 5dvh, 22px);
+  }
+
+  html.touch-ui .current-role {
+    top: calc(max(8px, env(safe-area-inset-top)) + 55px);
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 8px;
+  }
+
+  html.touch-ui .role-screen h2 {
+    text-align: center;
+  }
+
+  html.touch-ui .instruction-screen {
+    text-align: center;
+  }
+
+  html.touch-ui .instruction-role,
+  html.touch-ui .instruction-screen h2,
+  html.touch-ui .instruction-job,
+  html.touch-ui .instruction-controls {
+    width: 100%;
+    text-align: center;
+  }
+
+  html.touch-ui .instruction-start {
+    justify-self: center;
+  }
+
+  html.touch-ui .result-screen,
+  html.touch-ui .pause-menu {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  html.touch-ui .result-screen h2 {
+    font-size: clamp(30px, 11dvh, 48px);
+  }
+
+  html.touch-ui #resultText {
+    max-width: min(520px, 82vw);
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+
+  html.touch-ui .next-role-preview {
+    width: min(430px, 72vw);
+    margin-bottom: 10px;
+    padding: 8px 12px;
+  }
+
+  html.touch-ui .next-role-preview strong {
+    font-size: clamp(17px, 5dvh, 23px);
+  }
+
+  html.touch-ui .next-role-preview small {
+    font-size: 9px;
+  }
+
+  html.touch-ui #resultButton {
+    width: min(430px, 72vw);
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  html.touch-ui .role-announcement {
+    width: min(390px, 62vw);
+    padding: 12px 16px;
+  }
+
+  html.touch-ui .role-announcement strong {
+    font-size: clamp(23px, 8dvh, 34px);
+  }
+
+  html.touch-ui .pause-menu {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  html.touch-ui .pause-actions {
+    width: min(560px, 76vw);
+  }
+
+  html.touch-ui .pause-help {
+    text-align: center;
+  }
+
+  html.touch-ui .team.blue .scramble {
+    text-align: left;
+  }
+
+  html.touch-ui .team.red {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  html.touch-ui .team.red .head {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  html.touch-ui .team.red .scramble {
+    grid-column: 1;
+    grid-row: 1;
+    text-align: left;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .game-utilities {
+    top: max(43px, calc(env(safe-area-inset-top) + 38px));
+  }
+
+  html.touch-ui .game-utilities .utility-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  html.touch-ui .current-role {
+    top: calc(max(5px, env(safe-area-inset-top)) + 45px);
+  }
+
+  html.touch-ui .result-screen {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  html.touch-ui .result-screen h2 {
+    margin-bottom: 3px;
+    font-size: 28px;
+  }
+
+  html.touch-ui #resultText {
+    margin-bottom: 6px;
+    font-size: 9px;
+  }
+
+  html.touch-ui .next-role-preview {
+    margin-bottom: 7px;
+    padding: 6px 10px;
+  }
+
+  html.touch-ui .next-role-preview strong {
+    font-size: 17px;
+  }
+
+  html.touch-ui .next-role-preview small {
+    font-size: 8px;
+  }
+
+  html.touch-ui .pause-kicker,
+  html.touch-ui .pause-help {
+    display: none;
+  }
+
+  html.touch-ui .pause-actions {
+    width: min(570px, 78vw);
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  html.touch-ui .game-utilities {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    z-index: 10020;
+  }
+
+  html.touch-ui .game-utilities .pause-button {
+    display: none !important;
+  }
+
+  html.touch-ui .game-utilities .fullscreen-btn {
+    width: 46px;
+    height: 46px;
+    display: grid;
+    border-width: 2px;
+    background: #20262ee8;
+  }
+}

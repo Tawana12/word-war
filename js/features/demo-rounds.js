@@ -14,6 +14,15 @@ const resultKickerEl = document.querySelector('#resultKicker');
 const resultTitleEl = document.querySelector('#resultTitle');
 const resultTextEl = document.querySelector('#resultText');
 const resultButtonEl = document.querySelector('#resultButton');
+const nextRolePreviewEl = document.querySelector('#nextRolePreview');
+const nextRoleNameEl = document.querySelector('#nextRoleName');
+const nextRoleJobEl = document.querySelector('#nextRoleJob');
+const currentRoleChipEl = document.querySelector('#currentRoleChip');
+const roleAnnouncementEl = document.querySelector('#roleAnnouncement');
+const roleAnnouncementKickerEl = document.querySelector('#roleAnnouncementKicker');
+const roleAnnouncementNameEl = document.querySelector('#roleAnnouncementName');
+const roleAnnouncementJobEl = document.querySelector('#roleAnnouncementJob');
+let roleAnnouncementTimer = null;
 
 state.demoMatch = {
   roundIndex: 0,
@@ -21,13 +30,34 @@ state.demoMatch = {
   resolving: false,
   finished: false,
   currentAssignment: null,
+  nextAssignment: null,
 };
 
 const ROUND_ROLE_ASSIGNMENTS = Object.freeze([
-  { role: 'RUNNER', duty: null, label: 'Runner' },
-  { role: 'GUARDIAN', duty: 'SENTRY', label: 'Inner Sentry' },
-  { role: 'GUARDIAN', duty: 'WARDEN', label: 'Outer Warden' },
-  { role: 'SABOTEUR', duty: null, label: 'Saboteur' },
+  {
+    role: 'RUNNER',
+    duty: null,
+    label: 'Runner',
+    job: 'Collect and arrange letters.',
+  },
+  {
+    role: 'GUARDIAN',
+    duty: 'SENTRY',
+    label: 'Inner Sentry',
+    job: 'Stay inside and shoot intruding Runners.',
+  },
+  {
+    role: 'GUARDIAN',
+    duty: 'WARDEN',
+    label: 'Outer Warden',
+    job: 'Build walls and protect the perimeter.',
+  },
+  {
+    role: 'SABOTEUR',
+    duty: null,
+    label: 'Saboteur',
+    job: 'Carry bombs to enemy walls.',
+  },
 ]);
 
 function roundAssignmentKey(assignment) {
@@ -44,22 +74,55 @@ function assignmentFromActor(actor) {
   ) || ROUND_ROLE_ASSIGNMENTS[0];
 }
 
-function assignDifferentRoleForNextRound() {
-  const demo = state.demoMatch;
-  const current = demo.currentAssignment || assignmentFromActor(player);
+function chooseDifferentRoundAssignment(current = null) {
+  const active = current || state.demoMatch.currentAssignment || assignmentFromActor(player);
   const candidates = ROUND_ROLE_ASSIGNMENTS.filter(assignment =>
-    roundAssignmentKey(assignment) !== roundAssignmentKey(current)
+    roundAssignmentKey(assignment) !== roundAssignmentKey(active)
   );
-  const next = candidates[Math.floor(Math.random() * candidates.length)];
-  const roster = createSessionRoster(next.role, next.duty);
+  return candidates[Math.floor(Math.random() * candidates.length)] || active;
+}
 
-  if (!roster) return current;
+function prepareNextRoundAssignment() {
+  const demo = state.demoMatch;
+  demo.nextAssignment = chooseDifferentRoundAssignment(
+    demo.currentAssignment || assignmentFromActor(player)
+  );
+  return demo.nextAssignment;
+}
+
+function applyRoundAssignment(assignment) {
+  const demo = state.demoMatch;
+  const target = assignment || chooseDifferentRoundAssignment();
+  const roster = createSessionRoster(target.role, target.duty);
+
+  if (!roster) return demo.currentAssignment || assignmentFromActor(player);
 
   player = roster.player;
   bots = roster.bots;
   ACTORS = [player, ...bots];
-  demo.currentAssignment = next;
-  return next;
+  demo.currentAssignment = target;
+  demo.nextAssignment = null;
+  return target;
+}
+
+function showRoleAnnouncement(assignment, changed = false) {
+  if (!assignment || !roleAnnouncementEl) return;
+
+  if (roleAnnouncementKickerEl) {
+    roleAnnouncementKickerEl.textContent = changed ? 'NEW ROLE' : 'YOUR ROLE';
+  }
+  if (roleAnnouncementNameEl) roleAnnouncementNameEl.textContent = assignment.label;
+  if (roleAnnouncementJobEl) roleAnnouncementJobEl.textContent = assignment.job;
+
+  roleAnnouncementEl.classList.remove('hidden', 'show');
+  void roleAnnouncementEl.offsetWidth;
+  roleAnnouncementEl.classList.add('show');
+
+  clearTimeout(roleAnnouncementTimer);
+  roleAnnouncementTimer = setTimeout(() => {
+    roleAnnouncementEl.classList.remove('show');
+    setTimeout(() => roleAnnouncementEl.classList.add('hidden'), 180);
+  }, changed ? 2600 : 1800);
 }
 
 function updateRoundHud() {
@@ -68,6 +131,11 @@ function updateRoundHud() {
     roundStatusEl.textContent =
       `Round ${demo.roundIndex + 1}/${DEMO_ROUNDS.length} · ` +
       `${demo.score.blue}–${demo.score.red}`;
+  }
+
+  const assignment = demo.currentAssignment || assignmentFromActor(player);
+  if (currentRoleChipEl && assignment) {
+    currentRoleChipEl.textContent = `YOU: ${assignment.label.toUpperCase()}`;
   }
 }
 
@@ -246,9 +314,12 @@ function startDemoRound(index = 0, options = {}) {
   let assignment = demo.currentAssignment || assignmentFromActor(player);
 
   if (shouldChangeRole && advancingToNewRound) {
-    assignment = assignDifferentRoleForNextRound();
+    assignment = applyRoundAssignment(
+      options.assignment || demo.nextAssignment || chooseDifferentRoundAssignment(assignment)
+    );
   } else {
     demo.currentAssignment = assignment;
+    demo.nextAssignment = null;
   }
 
   demo.roundIndex = index;
@@ -277,6 +348,7 @@ function startDemoRound(index = 0, options = {}) {
     ? ` New role: ${assignment.label}.`
     : '';
   msg(`Round ${index + 1}.${roleNote} Form ${getTeamWord(player.team)}.`);
+  showRoleAnnouncement(assignment, advancingToNewRound);
 }
 
 function showRoundResult(winnerTeam, reason) {
@@ -309,8 +381,19 @@ function showRoundResult(winnerTeam, reason) {
   }
 
   if (resultTextEl) resultTextEl.textContent = reason;
-  if (resultButtonEl) {
-    resultButtonEl.textContent = final ? 'PLAY AGAIN' : 'NEXT ROUND · NEW ROLE';
+
+  if (final) {
+    demo.nextAssignment = null;
+    nextRolePreviewEl?.classList.add('hidden');
+    if (resultButtonEl) resultButtonEl.textContent = 'PLAY AGAIN';
+  } else {
+    const nextAssignment = prepareNextRoundAssignment();
+    nextRolePreviewEl?.classList.remove('hidden');
+    if (nextRoleNameEl) nextRoleNameEl.textContent = nextAssignment.label;
+    if (nextRoleJobEl) nextRoleJobEl.textContent = nextAssignment.job;
+    if (resultButtonEl) {
+      resultButtonEl.textContent = `NEXT ROUND AS ${nextAssignment.label.toUpperCase()}`;
+    }
   }
   document.documentElement.classList.add('round-ended');
   roundScreenEl?.classList.remove('hidden');
@@ -371,7 +454,9 @@ resultButtonEl?.addEventListener('click', () => {
     location.reload();
     return;
   }
-  startDemoRound(state.demoMatch.roundIndex + 1);
+  startDemoRound(state.demoMatch.roundIndex + 1, {
+    assignment: state.demoMatch.nextAssignment,
+  });
 });
 
 window.__wordWarsRounds = {

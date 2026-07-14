@@ -25,6 +25,7 @@
       <div class="hud" id="hudLayer" style="display:none;">
         <div class="timer" id="timer">1:30</div>
         <div class="round-status" id="roundStatus">Round 1 · 0–0</div>
+        <div class="current-role" id="currentRoleChip">YOU: RUNNER</div>
         <section class="team blue panel">
           <div class="head b">BLUE</div>
           <div class="label">Letters to arrange</div>
@@ -79,10 +80,24 @@
         <p class="result-kicker" id="resultKicker">ROUND 1</p>
         <h2 id="resultTitle">ROUND WON</h2>
         <p id="resultText">Blue completed the message.</p>
+        <div id="nextRolePreview" class="next-role-preview hidden" aria-live="polite">
+          <span>NEXT ROLE</span>
+          <strong id="nextRoleName">Runner</strong>
+          <small id="nextRoleJob">Collect and arrange letters.</small>
+        </div>
         <button id="resultButton" class="primary-action" type="button">NEXT ROUND</button>
       </div>
 
-      <button id="pauseBtn" class="pause-button" type="button" aria-label="Pause game" title="Pause">Ⅱ</button>
+      <div id="roleAnnouncement" class="role-announcement hidden" aria-live="assertive">
+        <span id="roleAnnouncementKicker">YOUR ROLE</span>
+        <strong id="roleAnnouncementName">Runner</strong>
+        <small id="roleAnnouncementJob">Collect and arrange letters.</small>
+      </div>
+
+      <div id="gameUtilities" class="game-utilities" aria-label="Game controls">
+        <button id="pauseBtn" class="utility-button pause-button" type="button" aria-label="Pause game" title="Pause">Ⅱ</button>
+        <button id="fullscreenBtn" class="utility-button fullscreen-btn" type="button" title="Enter full screen" aria-label="Enter full screen">⛶</button>
+      </div>
 
       <div id="pauseMenu" class="overlay pause-menu hidden" aria-modal="true" role="dialog">
         <p class="pause-kicker">GAME PAUSED</p>
@@ -111,7 +126,6 @@
           <div class="rotate-phone" aria-hidden="true"></div>
           <strong>Rotate to landscape</strong>
           <span>Word Wars is built for two-thumb play.</span>
-          <button id="landscapeBtn" type="button">FULL SCREEN</button>
         </div>
       </div>
     </section>
@@ -124,7 +138,6 @@
         <div id="contextHint">Choose a role.</div>
         <div class="msg" id="msg">Complete your word before the other team.</div>
       </div>
-      <button id="fullscreenBtn" class="fullscreen-btn" type="button" title="Toggle full screen" aria-label="Toggle full screen">⛶</button>
       <div class="speed dev-tools" hidden>
         <label>Bot speed <span id="speedVal">0.9x</span></label>
         <input id="botSpeedSlider" type="range" min="0.2" max="2.0" step="0.1" value="0.9">
