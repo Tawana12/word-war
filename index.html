@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Word Wars</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/ui.css" />
+</head>
+<body>
+  <main id="wrap">
+    <section id="stage" aria-label="Word Wars arena">
+      <canvas id="game" width="1000" height="700"></canvas>
+
+      <div id="modeScreen" class="overlay landing-screen">
+        <div class="wordmark" aria-label="Word Wars">
+          <span>WORD</span><span>WARS</span>
+        </div>
+        <p class="tagline">Build your word. Break theirs.</p>
+        <button id="botModeBtn" class="primary-action" type="button">PLAY</button>
+        <p class="match-meta">5v5 · best of five · first to three</p>
+        <div id="modeStatus" aria-live="polite"></div>
+      </div>
+
+      <div class="hud" id="hudLayer" style="display:none;">
+        <div class="timer" id="timer">1:30</div>
+        <div class="round-status" id="roundStatus">Round 1 · 0–0</div>
+        <section class="team blue panel">
+          <div class="head b">BLUE</div>
+          <div class="label">Letters to arrange</div>
+          <div class="scramble" id="bs"></div>
+        </section>
+        <section class="team red panel">
+          <div class="head r">RED</div>
+          <div class="label">Letters to arrange</div>
+          <div class="scramble" id="rs"></div>
+        </section>
+      </div>
+
+      <div id="roleScreen" class="overlay role-screen hidden">
+        <button id="backToModeBtn" class="overlay-back" type="button">← Back</button>
+        <h2>Pick a role</h2>
+
+        <div class="role-list">
+          <button class="role-option role-runner" data-role="RUNNER">
+            <strong>Runner</strong>
+            <span>Letters</span>
+          </button>
+
+          <button class="role-option role-sentry" data-role="GUARDIAN" data-duty="SENTRY">
+            <strong>Sentry</strong>
+            <span>Shoot</span>
+          </button>
+
+          <button class="role-option role-warden" data-role="GUARDIAN" data-duty="WARDEN">
+            <strong>Warden</strong>
+            <span>Build</span>
+          </button>
+
+          <button class="role-option role-saboteur" data-role="SABOTEUR">
+            <strong>Saboteur</strong>
+            <span>Bombs</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="instructionScreen" class="overlay instruction-screen hidden">
+        <button id="instructionBackBtn" class="overlay-back" type="button">← Roles</button>
+        <p class="instruction-role" id="instructionRole">Runner</p>
+        <h2>How to play</h2>
+        <p class="instruction-aim">Collect the scattered tiles and arrange the jumbled letters to reveal your message. Some needed letters are across the white line. First team to win three rounds takes the match.</p>
+        <canvas id="tutorialCanvas" width="760" height="270" aria-label="Animated demonstrations of every role"></canvas>
+        <p class="instruction-job" id="instructionJob">Collect letters and cross the line when a needed tile is on the other side.</p>
+        <p class="instruction-controls" id="instructionControls">WASD or arrows to move · Space to act</p>
+        <button id="startMatchBtn" class="primary-action instruction-start" type="button">START</button>
+      </div>
+
+      <div id="roundScreen" class="overlay result-screen hidden">
+        <p class="result-kicker" id="resultKicker">ROUND 1</p>
+        <h2 id="resultTitle">ROUND WON</h2>
+        <p id="resultText">Blue completed the message.</p>
+        <button id="resultButton" class="primary-action" type="button">NEXT ROUND</button>
+      </div>
+
+      <div id="mobileControls" class="mobile-controls" aria-hidden="true">
+        <div id="joystick" class="joystick" aria-label="Movement joystick">
+          <div class="joystick-ring"></div>
+          <div id="joystickKnob" class="joystick-knob"></div>
+        </div>
+        <button id="mobileActionBtn" class="mobile-action" type="button">ACT</button>
+      </div>
+
+      <div id="portraitTip" class="portrait-tip">Landscape gives you the clearest view.</div>
+    </section>
+
+    <footer id="gameBar">
+      <div class="controls">
+        <div id="roleStrip"><strong>WORD WARS</strong>Move with WASD or arrows · Space acts</div>
+      </div>
+      <div class="game-info">
+        <div id="contextHint">Choose a role.</div>
+        <div class="msg" id="msg">Complete your word before the other team.</div>
+      </div>
+      <button id="fullscreenBtn" class="fullscreen-btn" type="button" title="Toggle full screen" aria-label="Toggle full screen">⛶</button>
+      <div class="speed dev-tools" hidden>
+        <label>Bot speed <span id="speedVal">0.9x</span></label>
+        <input id="botSpeedSlider" type="range" min="0.2" max="2.0" step="0.1" value="0.9">
+      </div>
+    </footer>
+  </main>
+
+  <script src="js/core/core.js"></script>
+  <script src="js/net/multiplayer-adapter.js"></script>
+  <script src="js/session/session.js"></script>
+  <script src="js/world/world.js"></script>
+  <script src="js/gameplay/actions.js"></script>
+  <script src="js/ai/bots.js"></script>
+  <script src="js/engine/engine-render.js"></script>
+  <script src="js/world/territory.js"></script>
+  <script src="js/features/game-features.js"></script>
+  <script src="js/ui/clarity.js"></script>
+  <script src="js/combat/combat.js"></script>
+  <script src="js/world/shifting-maze.js"></script>
+  <script src="js/features/fortress-wear.js"></script>
+  <script src="js/features/letter-flow.js"></script>
+  <script src="js/roles/merged-roles.js"></script>
+  <script src="js/roles/guardian-zones.js"></script>
+  <script src="js/ui/role-visuals.js"></script>
+  <script src="js/ui/human-pass.js"></script>
+  <script src="js/ui/instructions.js"></script>
+  <script src="js/ui/mobile-controls.js"></script>
+  <script src="js/features/demo-rounds.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

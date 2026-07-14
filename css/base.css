@@ -1,0 +1,521 @@
+:root {
+  --page: #181b20;
+  --ink: #f3f5f7;
+  --muted: #9aa4b2;
+  --panel: #252a32;
+  --panel-2: #1d2128;
+  --line: #424a57;
+  --blue: #2f7df4;
+  --red: #ec4d4d;
+  --sand: #d5ad73;
+  --tile: #f2cf66;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  color: var(--ink);
+  background: var(--page);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+#wrap {
+  width: min(1500px, 100vw, calc((100dvh - 58px) * 1.42857));
+  max-width: 100vw;
+  max-height: 100dvh;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid #303642;
+  border-radius: 10px;
+  background: #15181d;
+  box-shadow: 0 18px 40px #0008;
+}
+
+#stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 10 / 7;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--sand);
+  touch-action: none;
+}
+
+canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--sand);
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.panel {
+  background: #20252ce8;
+  border: 1px solid #586171;
+  border-radius: 7px;
+  box-shadow: 0 4px 10px #0005;
+}
+
+.team {
+  position: absolute;
+  top: 10px;
+  width: 198px;
+  padding: 7px 9px;
+}
+
+.team.blue { left: 10px; }
+.team.red { right: 10px; }
+
+.head {
+  margin-bottom: 3px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .8px;
+}
+
+.head.b { color: #72a7ff; }
+.head.r { color: #ff8181; }
+
+.label {
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .45px;
+  text-transform: uppercase;
+}
+
+.scramble {
+  width: 100%;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(11px, 1.2vw, 14px);
+  font-weight: 900;
+  letter-spacing: clamp(1px, .25vw, 3px);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.timer {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  border: 1px solid #596172;
+  border-radius: 7px;
+  background: #171b20e8;
+  box-shadow: 0 4px 10px #0005;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.round-status {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: #171b20c7;
+  color: #dce2e9;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .35px;
+  white-space: nowrap;
+}
+
+#gameBar {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(190px, .72fr) minmax(300px, 1.28fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  background: #20242b;
+}
+
+.controls {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+#roleStrip strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: .35px;
+}
+
+.game-info {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 7px;
+}
+
+#contextHint,
+.msg {
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 6px 9px;
+  border: 1px solid #343b46;
+  border-radius: 6px;
+  background: #181c22;
+  color: #dfe5ed;
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+#contextHint {
+  color: #fff2bd;
+  border-color: #5a5030;
+}
+
+.msg {
+  transition: border-color .14s ease;
+}
+
+.msg.flash {
+  border-color: #ffffff66;
+}
+
+.dev-tools:not([hidden]) {
+  display: block;
+  grid-column: 1 / -1;
+  padding-top: 5px;
+  text-align: center;
+}
+
+.dev-tools label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.dev-tools input {
+  width: min(300px, 100%);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #1a1e24f2;
+  pointer-events: auto;
+}
+
+.overlay.hidden {
+  display: none !important;
+}
+
+.overlay h2 {
+  margin-bottom: 7px;
+  font-size: clamp(25px, 4vw, 36px);
+  letter-spacing: .3px;
+}
+
+.overlay-back {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 7px 10px;
+  border: 1px solid #596172;
+  border-radius: 6px;
+  background: #20252d;
+  color: #e4e8ee;
+  cursor: pointer;
+}
+
+.overlay-back:hover {
+  background: #2b313b;
+}
+
+.cargo,
+.cargoBox {
+  display: none !important;
+}
+
+
+
+.fullscreen-btn {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #46505e;
+  border-radius: 6px;
+  background: #181c22;
+  color: #eef2f6;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.fullscreen-btn:hover {
+  background: #2b313a;
+}
+
+.mobile-controls,
+.portrait-tip {
+  display: none;
+}
+
+html.touch-ui .mobile-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: block;
+  pointer-events: none;
+}
+
+.joystick,
+.mobile-action {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.joystick {
+  position: absolute;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+}
+
+.joystick-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #ffffff80;
+  border-radius: 50%;
+  background: #10151b70;
+  box-shadow: inset 0 0 0 10px #ffffff0a;
+}
+
+.joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff9;
+  border-radius: 50%;
+  background: #e7edf4d9;
+  box-shadow: 0 5px 14px #0008;
+}
+
+.mobile-action {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(28px, env(safe-area-inset-bottom));
+  width: 84px;
+  height: 84px;
+  border: 2px solid #fff9;
+  border-radius: 50%;
+  background: #f1ca5ce8;
+  color: #211b0d;
+  box-shadow: 0 6px 18px #0008;
+  font-size: 14px;
+  font-weight: 1000;
+  letter-spacing: .6px;
+}
+
+.mobile-action:active,
+.mobile-action.pressed {
+  transform: scale(.94);
+  background: #ffe078;
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  .portrait-tip {
+    position: absolute;
+    left: 50%;
+    bottom: 7px;
+    z-index: 72;
+    display: block;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: #15191ed9;
+    color: #eef2f6;
+    font-size: 9px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 760px) {
+  body {
+    padding: 0;
+    overflow: auto;
+    place-items: start center;
+  }
+
+  #wrap {
+    width: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  #stage {
+    max-height: none;
+  }
+
+  .team {
+    top: 6px;
+    width: 166px;
+    padding: 5px 7px;
+  }
+
+  .team.blue { left: 6px; }
+  .team.red { right: 6px; }
+
+  .head { font-size: 10px; }
+  .label { font-size: 7px; }
+  .scramble { font-size: 9px; letter-spacing: 1px; }
+  .timer { top: 6px; padding: 4px 8px; font-size: 13px; }
+  .round-status { top: 39px; font-size: 8px; }
+
+  #gameBar {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .controls {
+    text-align: center;
+  }
+
+  .game-info {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  #gameBar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .controls {
+    display: none;
+  }
+
+  .game-info {
+    grid-column: 1;
+  }
+
+  .fullscreen-btn {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  #contextHint,
+  .msg {
+    min-height: 30px;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 520px) {
+  #gameBar {
+    min-height: 44px;
+    padding: 4px 7px;
+  }
+
+  .game-info {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .joystick {
+    width: 96px;
+    height: 96px;
+    bottom: 10px;
+  }
+
+  .joystick-knob {
+    width: 42px;
+    height: 42px;
+  }
+
+  .mobile-action {
+    width: 72px;
+    height: 72px;
+    bottom: 16px;
+  }
+}
+
+#wrap:fullscreen,
+#wrap:-webkit-full-screen {
+  width: min(100vw, calc((100dvh - 58px) * 1.42857));
+  max-width: none;
+  max-height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+
+
+/* Game controls own the arena: no browser panning, zoom gestures or bounce. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+#stage,
+#game,
+#touchControls,
+.joystick,
+.mobile-action-btn {
+  touch-action: none;
+}

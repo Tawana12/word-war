@@ -1,0 +1,326 @@
+'use strict';
+
+const DEMO_ROUNDS = Object.freeze([
+  { blue: 'TEAMWORK', red: 'TOGETHER' },
+  { blue: 'KINDNESS', red: 'LAUGHTER' },
+  { blue: 'COMMUNITY', red: 'BELONGING' },
+  { blue: 'ADVENTURE', red: 'DISCOVERY' },
+  { blue: 'COMPASSION', red: 'CONNECTION' },
+]);
+
+const roundStatusEl = document.querySelector('#roundStatus');
+const roundScreenEl = document.querySelector('#roundScreen');
+const resultKickerEl = document.querySelector('#resultKicker');
+const resultTitleEl = document.querySelector('#resultTitle');
+const resultTextEl = document.querySelector('#resultText');
+const resultButtonEl = document.querySelector('#resultButton');
+
+state.demoMatch = {
+  roundIndex: 0,
+  score: { blue: 0, red: 0 },
+  resolving: false,
+  finished: false,
+};
+
+function updateRoundHud() {
+  const demo = state.demoMatch;
+  if (roundStatusEl) {
+    roundStatusEl.textContent =
+      `Round ${demo.roundIndex + 1}/${DEMO_ROUNDS.length} · ` +
+      `${demo.score.blue}–${demo.score.red}`;
+  }
+}
+
+function restoreRoundWalls() {
+  walls.length = 0;
+
+  for (const blueprint of blueprints) {
+    const base = BASES[blueprint.team];
+    const size = CONFIG.WALL_SIZE;
+    const isCorner =
+      (blueprint.x === base.x - size || blueprint.x === base.x + base.w) &&
+      (blueprint.y === base.y - size || blueprint.y === base.y + base.h);
+    const isBack =
+      (blueprint.team === 'blue' && blueprint.edge === 'left') ||
+      (blueprint.team === 'red' && blueprint.edge === 'right');
+
+    if (isBack || isCorner) walls.push({ ...blueprint });
+  }
+
+  if (typeof instantiateMaze === 'function') {
+    walls.push(...instantiateMaze(activeMazeIndex));
+  }
+
+  if (typeof mazePhase !== 'undefined') mazePhase = 'ACTIVE';
+  if (typeof mazeTimer !== 'undefined') mazeTimer = 25;
+  if (typeof mazeGhostWalls !== 'undefined') mazeGhostWalls = [];
+  if (typeof navigationGridCache !== 'undefined') navigationGridCache.clear();
+}
+
+function resetActorForRound(actor) {
+  actor.inv = null;
+  actor.alive = true;
+  actor.vx = 0;
+  actor.vy = 0;
+  actor.inputX = 0;
+  actor.inputY = 0;
+  actor.target = null;
+  actor.targetItem = null;
+  actor.targetSlotIndex = null;
+  actor.buildTarget = null;
+  actor.plantTarget = null;
+  actor.interceptTarget = null;
+  actor.combatAimTarget = null;
+  actor.combatAimTimer = 0;
+  actor.burstRemaining = 0;
+  actor.burstRecovery = 0;
+  actor.shootCooldown = 0;
+  actor.stunTimer = 0;
+  actor.respawnTimer = 0;
+  actor.damageFlash = 0;
+  actor.boost = 0;
+  actor.aiRole = null;
+  actor.hybridTaskUntil = 0;
+  actor.thinkTimer = 0;
+  actor.targetCommit = 0;
+  actor.navPath = [];
+  actor.navPathIndex = 0;
+  actor.navRevision = -1;
+  actor.coverTreeId = null;
+  actor.raidSlotIndex = null;
+  actor.raidTargetTeam = null;
+  actor.failedItem = null;
+  actor.failedItemUntil = 0;
+  clearReservation(actor);
+
+  if (isRunnerRole(actor)) {
+    actor.maxHealth = 100;
+    actor.health = 100;
+    actor.lives = CONFIG.RAIDER_STARTING_LIVES;
+  } else {
+    actor.maxHealth = 0;
+    actor.health = 0;
+    actor.lives = 0;
+  }
+
+  if (isInnerSentry(actor)) {
+    actor.weaponTier = 1;
+    actor.gunAmmo = 0;
+  } else if (isGuardianRole(actor)) {
+    actor.weaponTier = 0;
+    actor.gunAmmo = 0;
+  }
+}
+
+function placeRoundActors() {
+  for (const team of ['blue', 'red']) {
+    const base = BASES[team];
+    const teamActors = (ACTORS || []).filter(actor => actor.team === team);
+    const runners = teamActors.filter(isRunnerRole);
+    const saboteurs = teamActors.filter(isSaboteurRole);
+
+    runners.forEach((actor, index) => {
+      actor.x = base.x + (index === 0 ? 72 : 168);
+      actor.y = base.y + 48;
+      actor.prevX = actor.x;
+      actor.prevY = actor.y;
+      actor.facingX = team === 'blue' ? 1 : -1;
+      actor.facingY = 0;
+    });
+
+    for (const actor of teamActors.filter(isGuardianRole)) {
+      placeGuardianForDuty(actor);
+    }
+
+    saboteurs.forEach(actor => {
+      actor.x = base.x + base.w / 2;
+      actor.y = base.y + base.h - 38;
+      actor.prevX = actor.x;
+      actor.prevY = actor.y;
+      actor.facingX = team === 'blue' ? 1 : -1;
+      actor.facingY = 0;
+    });
+  }
+}
+
+function clearRoundObjects() {
+  itemReservations.clear();
+  items.length = 0;
+  explosions.length = 0;
+  slotEffects.length = 0;
+  interceptEffects.length = 0;
+  if (typeof bullets !== 'undefined') bullets.length = 0;
+}
+
+function seedRoundSupplies() {
+  seedRoundLetters();
+
+  while (combatItemCount('health') < CONFIG.MAX_HEALTH_ITEMS) {
+    spawnCombatItem('health');
+  }
+  while (combatItemCount('gun') < CONFIG.MAX_GUN_ITEMS) {
+    spawnCombatItem('gun');
+  }
+
+  combatSupplyTimer = 0;
+}
+
+function applyRoundWords(index) {
+  const words = DEMO_ROUNDS[index];
+  CONFIG.BLUE_WORD = words.blue;
+  CONFIG.RED_WORD = words.red;
+  refreshLetterPools();
+
+  state.blue = Array(words.blue.length).fill(null);
+  state.red = Array(words.red.length).fill(null);
+  state.seconds = CONFIG.ROUND_SECONDS;
+  state.spawnTimer = CONFIG.ITEM_SPAWN_INTERVAL;
+  state.jammedUntil.blue = 0;
+  state.jammedUntil.red = 0;
+
+  if (state.wordLocks) {
+    state.wordLocks.blue = 0;
+    state.wordLocks.red = 0;
+  }
+  if (state.letterFlow) {
+    state.letterFlow.timer = 0;
+    state.letterFlow.shortageSince.blue.clear();
+    state.letterFlow.shortageSince.red.clear();
+  }
+  if (state.raidControl) {
+    for (const team of ['blue', 'red']) {
+      state.raidControl[team].activeActor = null;
+      state.raidControl[team].cooldownUntil = 0;
+    }
+  }
+
+  if (bsEl) bsEl.textContent = shuffle(words.blue);
+  if (rsEl) rsEl.textContent = shuffle(words.red);
+  if (timerEl) timerEl.textContent = '1:30';
+}
+
+function startDemoRound(index = 0) {
+  const demo = state.demoMatch;
+  demo.roundIndex = index;
+  demo.resolving = false;
+  demo.finished = false;
+
+  applyRoundWords(index);
+  clearRoundObjects();
+  restoreRoundWalls();
+
+  for (const actor of ACTORS || []) resetActorForRound(actor);
+  placeRoundActors();
+  seedRoundSupplies();
+  if (typeof fortressWearTimer !== 'undefined') {
+    fortressWearTimer = CONFIG.FORTRESS_WEAR_INTERVAL;
+  }
+
+  state.over = false;
+  roundScreenEl?.classList.add('hidden');
+  updateRoundHud();
+  updateActorTreeCover();
+  updateContextHint();
+  updateRoleStrip(player.role, player.guardianDuty || null);
+  msg(`Round ${index + 1}. Form ${getTeamWord(player.team)}.`);
+}
+
+function showRoundResult(winnerTeam, reason) {
+  const demo = state.demoMatch;
+  const localTeam = player?.team || 'blue';
+  const final = demo.finished;
+  const localWon = winnerTeam === localTeam;
+  const localLost = winnerTeam && winnerTeam !== localTeam;
+
+  if (resultKickerEl) {
+    resultKickerEl.textContent = final
+      ? `FINAL · ${demo.score.blue}–${demo.score.red}`
+      : `ROUND ${demo.roundIndex + 1} · ${demo.score.blue}–${demo.score.red}`;
+  }
+
+  if (resultTitleEl) {
+    if (final) {
+      resultTitleEl.textContent = demo.score[localTeam] > demo.score[otherTeam(localTeam)]
+        ? 'YOU WON'
+        : demo.score[localTeam] < demo.score[otherTeam(localTeam)]
+          ? 'YOU LOST'
+          : 'DRAW';
+    } else {
+      resultTitleEl.textContent = localWon
+        ? 'ROUND WON'
+        : localLost
+          ? 'ROUND LOST'
+          : 'ROUND DRAW';
+    }
+  }
+
+  if (resultTextEl) resultTextEl.textContent = reason;
+  if (resultButtonEl) resultButtonEl.textContent = final ? 'PLAY AGAIN' : 'NEXT ROUND';
+  roundScreenEl?.classList.remove('hidden');
+}
+
+function finishDemoRound(winnerTeam, reason = '') {
+  const demo = state.demoMatch;
+  if (demo.resolving || demo.finished) return;
+
+  demo.resolving = true;
+  state.over = true;
+
+  if (winnerTeam === 'blue' || winnerTeam === 'red') {
+    demo.score[winnerTeam] += 1;
+  }
+
+  const reachedThree = demo.score.blue >= 3 || demo.score.red >= 3;
+  const lastRound = demo.roundIndex >= DEMO_ROUNDS.length - 1;
+  demo.finished = reachedThree || lastRound;
+  updateRoundHud();
+
+  const defaultReason = winnerTeam
+    ? `${winnerTeam === 'blue' ? 'Blue' : 'Red'} formed ${getTeamWord(winnerTeam)}.`
+    : 'Neither team completed the message.';
+  showRoundResult(winnerTeam, reason || defaultReason);
+}
+
+function resolveTimedRound() {
+  const blueCorrect = correctSlotCount('blue');
+  const redCorrect = correctSlotCount('red');
+  const blueFilled = filledSlotCount('blue');
+  const redFilled = filledSlotCount('red');
+
+  if (blueCorrect > redCorrect) {
+    finishDemoRound('blue', 'Time. Blue had more letters in the correct place.');
+  } else if (redCorrect > blueCorrect) {
+    finishDemoRound('red', 'Time. Red had more letters in the correct place.');
+  } else if (blueFilled > redFilled) {
+    finishDemoRound('blue', 'Time. Blue placed more letters.');
+  } else if (redFilled > blueFilled) {
+    finishDemoRound('red', 'Time. Red placed more letters.');
+  } else {
+    finishDemoRound(null, 'Time. The round ended level.');
+  }
+}
+
+winner = function demoRoundWinner() {
+  if (state.over || state.demoMatch.resolving) return;
+  if (isWordComplete('blue')) {
+    finishDemoRound('blue', `Blue formed ${getTeamWord('blue')}.`);
+  } else if (isWordComplete('red')) {
+    finishDemoRound('red', `Red formed ${getTeamWord('red')}.`);
+  }
+};
+
+resultButtonEl?.addEventListener('click', () => {
+  if (state.demoMatch.finished) {
+    location.reload();
+    return;
+  }
+  startDemoRound(state.demoMatch.roundIndex + 1);
+});
+
+window.__wordWarsRounds = {
+  rounds: DEMO_ROUNDS,
+  state: state.demoMatch,
+  start: startDemoRound,
+  finish: finishDemoRound,
+  resolveTimedRound,
+};
