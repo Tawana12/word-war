@@ -29,12 +29,45 @@ let mobileLabelTimer = 0;
 let mobileTargetLock = { item: null, until: 0 };
 let mobileActionBufferedUntil = 0;
 
+function mobileGameplayLayoutActive() {
+  return document.documentElement.classList.contains('game-started');
+}
+
+function resetMobileCameraStyles() {
+  mobileCameraTop = null;
+  if (!mobileGameCanvas) return;
+  mobileGameCanvas.style.transform = '';
+  mobileGameCanvas.style.width = '';
+  mobileGameCanvas.style.left = '';
+  mobileGameCanvas.style.right = '';
+}
+
+function resetMobileUiState() {
+  resetJoystick();
+  mobileTargetLock = { item: null, until: 0 };
+  mobileActionBufferedUntil = 0;
+  mobileLabelTimer = 0;
+  mobileControlsEl?.classList.remove('game-active');
+  mobileActionBtn?.classList.remove('ready', 'blocked', 'pressed');
+  if (mobileActionBtn) {
+    mobileActionBtn.textContent = 'ACT';
+    mobileActionBtn.setAttribute('aria-label', 'ACT');
+  }
+  resetMobileCameraStyles();
+}
+
+function refreshMobileLayout() {
+  requestAnimationFrame(() => updateMobileCamera(1 / 60, true));
+}
+
 function mobileLandscapeReady() {
   return touchUI && mobileLandscapeQuery.matches;
 }
 
 function mobileGameIsActive() {
   return Boolean(
+    mobileGameplayLayoutActive() &&
+    !state.paused &&
     player &&
     player.alive !== false &&
     !state.over &&
@@ -46,8 +79,8 @@ function syncMobileOrientation() {
   const ready = mobileLandscapeReady();
   document.documentElement.classList.toggle('mobile-landscape', ready);
   rotateOverlayEl?.setAttribute('aria-hidden', ready ? 'true' : 'false');
-  if (!ready) resetJoystick();
-  updateMobileCamera(1 / 60, true);
+  if (!ready) resetMobileUiState();
+  else refreshMobileLayout();
 }
 
 function resetJoystick() {
@@ -324,12 +357,11 @@ for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
 function updateMobileCamera(dt = 1 / 60, immediate = false) {
   if (!mobileGameCanvas || !mobileStageEl) return;
 
-  if (!mobileLandscapeReady()) {
-    mobileCameraTop = null;
-    mobileGameCanvas.style.transform = '';
-    mobileGameCanvas.style.width = '';
-    mobileGameCanvas.style.left = '';
-    mobileGameCanvas.style.right = '';
+  // Menus always use the normal, untransformed stage. The mobile camera is
+  // enabled only after a match has started, which prevents a return to the
+  // main menu from carrying stale width/translate values into the next game.
+  if (!mobileLandscapeReady() || !mobileGameplayLayoutActive()) {
+    resetMobileCameraStyles();
     return;
   }
 
@@ -494,12 +526,15 @@ document.addEventListener('fullscreenchange', handleFullscreenChange);
 document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 
 mobileLandscapeQuery.addEventListener?.('change', syncMobileOrientation);
-window.addEventListener('resize', () => updateMobileCamera(1 / 60, true));
+window.addEventListener('resize', refreshMobileLayout);
 window.addEventListener('orientationchange', syncMobileOrientation);
 window.addEventListener('blur', resetJoystick);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) resetJoystick();
 });
+
+globalThis.resetMobileUiState = resetMobileUiState;
+globalThis.refreshMobileLayout = refreshMobileLayout;
 
 if (mobileControlsEl) {
   mobileControlsEl.setAttribute('aria-hidden', touchUI ? 'false' : 'true');

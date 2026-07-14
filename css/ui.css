@@ -1155,3 +1155,44 @@ html.game-paused .mobile-controls {
     background: #20262ee8;
   }
 }
+
+/* Stable app-screen state -------------------------------------------------
+   Menus must never inherit gameplay HUD/control positioning or camera UI. */
+html:not(.game-started) #hudLayer,
+html:not(.game-started) .current-role,
+html:not(.game-started) .mobile-controls {
+  display: none !important;
+}
+
+html:not(.game-started) .game-utilities {
+  top: 12px;
+  right: 12px;
+}
+
+html.game-started .game-utilities {
+  top: 72px;
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui:not(.game-started) .game-utilities {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+  }
+
+  html.touch-ui.game-started .game-utilities {
+    top: max(56px, calc(env(safe-area-inset-top) + 48px));
+  }
+
+  html.touch-ui:not(.game-started) #game {
+    width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui.game-started .game-utilities {
+    top: max(43px, calc(env(safe-area-inset-top) + 38px));
+  }
+}

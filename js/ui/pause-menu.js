@@ -54,7 +54,7 @@ restartMatchBtnEl?.addEventListener('click', () => {
 
 mainMenuBtnEl?.addEventListener('click', () => {
   globalThis.playGameSound?.('uiClick');
-  location.reload();
+  globalThis.returnToMainMenu?.();
 });
 
 document.addEventListener('keydown', event => {

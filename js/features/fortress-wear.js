@@ -12,6 +12,11 @@ Object.assign(CONFIG, {
 let fortressWearTimer = CONFIG.FORTRESS_WEAR_INTERVAL;
 const fortressDust = [];
 
+function resetFortressWearState() {
+  fortressWearTimer = CONFIG.FORTRESS_WEAR_INTERVAL;
+  fortressDust.length = 0;
+}
+
 function shuffleFortressWalls(list) {
   const copy = [...list];
   for (let index = copy.length - 1; index > 0; index--) {
@@ -124,5 +129,8 @@ drawWorldEffects = function fortressWearEffects() {
 
 window.__wordWarsFortressWear = {
   trigger: triggerFortressWear,
+  reset: resetFortressWearState,
   timer: () => fortressWearTimer,
 };
+
+globalThis.resetFortressWearState = resetFortressWearState;

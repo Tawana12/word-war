@@ -543,5 +543,5 @@
         ctx.clearRect(0, 0, CONFIG.W, CONFIG.H); ctx.fillStyle = '#dcb37b'; ctx.fillRect(0, 0, CONFIG.W, CONFIG.H);
         drawBases(); drawPhysicalSlots(); drawBlueprints(); drawWalls(); drawSupplyPads();
         drawTreeTrunks(); drawItems(); drawExplosions(); drawActors(alpha); drawTreeCanopies(); drawWorldEffects();
-        if (state.over) drawGameOverOverlay();
+        if (state.over && player) drawGameOverOverlay();
       }

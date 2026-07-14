@@ -258,10 +258,31 @@ function clearRoundObjects() {
   slotEffects.length = 0;
   interceptEffects.length = 0;
   if (typeof bullets !== 'undefined') bullets.length = 0;
+  globalThis.resetFortressWearState?.();
+}
+
+function resetSupplyPadCursors() {
+  for (const key of Object.keys(supplyPadCursor)) {
+    supplyPadCursor[key] = 0;
+  }
 }
 
 function seedRoundSupplies() {
+  resetSupplyPadCursors();
   seedRoundLetters();
+
+  // Keep the Warden loop predictable after restarts and menu returns. Four
+  // opening bricks place one near each normal brick supply area; fortress
+  // wear continues to replace any built sections that later crumble.
+  while (items.filter(item => item.type === 'wall').length < 4) {
+    spawn('wall');
+  }
+  while (items.filter(item => item.type === 'bomb' && !item.ignited).length < 2) {
+    spawn('bomb');
+  }
+  while (items.filter(item => item.type === 'speed').length < 1) {
+    spawn('speed');
+  }
 
   while (combatItemCount('health') < CONFIG.MAX_HEALTH_ITEMS) {
     spawnCombatItem('health');
@@ -334,9 +355,8 @@ function startDemoRound(index = 0, options = {}) {
   for (const actor of ACTORS || []) resetActorForRound(actor);
   placeRoundActors();
   seedRoundSupplies();
-  if (typeof fortressWearTimer !== 'undefined') {
-    fortressWearTimer = CONFIG.FORTRESS_WEAR_INTERVAL;
-  }
+  globalThis.resetFortressWearState?.();
+  globalThis.resetMobileUiState?.();
 
   state.over = false;
   roundScreenEl?.classList.add('hidden');
@@ -344,6 +364,7 @@ function startDemoRound(index = 0, options = {}) {
   updateActorTreeCover();
   updateContextHint();
   updateRoleStrip(player.role, player.guardianDuty || null);
+  globalThis.refreshMobileLayout?.();
   const roleNote = advancingToNewRound && assignment
     ? ` New role: ${assignment.label}.`
     : '';
@@ -451,7 +472,7 @@ winner = function demoRoundWinner() {
 
 resultButtonEl?.addEventListener('click', () => {
   if (state.demoMatch.finished) {
-    location.reload();
+    globalThis.returnToMainMenu?.();
     return;
   }
   startDemoRound(state.demoMatch.roundIndex + 1, {
