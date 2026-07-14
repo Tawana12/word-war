@@ -407,7 +407,18 @@
       }
 
       function driveActor(actor, dirx, diry, dt, isBot) {
-        const boosted = actor.boost > 0; const botMultiplier = isBot ? botSpeed * CONFIG.BOT_BASE_SPEED_MULTIPLIER : 1; const speedMag = actor.maxSpeed * (boosted ? CONFIG.BOOST_MULTIPLIER : 1) * botMultiplier;
+        const boosted = actor.boost > 0;
+        const teamBalance = isBot && player
+          ? (actor.team === player.team
+              ? (CONFIG.BOT_ALLY_SPEED_MULTIPLIER || 1)
+              : (CONFIG.BOT_ENEMY_SPEED_MULTIPLIER || 1))
+          : 1;
+        const botMultiplier = isBot
+          ? botSpeed * CONFIG.BOT_BASE_SPEED_MULTIPLIER * teamBalance
+          : 1;
+        const speedMag = actor.maxSpeed *
+          (boosted ? CONFIG.BOOST_MULTIPLIER : 1) *
+          botMultiplier;
         let desiredVX = dirx * speedMag, desiredVY = diry * speedMag;
         if (actor.stunTimer > 0) { desiredVX = 0; desiredVY = 0; }
         accelerateTowards(actor, desiredVX, desiredVY, dt); moveActor(actor, dt);

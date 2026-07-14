@@ -277,12 +277,22 @@ function seedRoundSupplies() {
   while (items.filter(item => item.type === 'wall').length < 4) {
     spawn('wall');
   }
-  while (items.filter(item => item.type === 'bomb' && !item.ignited).length < 2) {
+  while (items.filter(item => item.type === 'bomb' && !item.ignited).length < 3) {
     spawn('bomb');
   }
-  while (items.filter(item => item.type === 'speed').length < 1) {
+  while (items.filter(item => item.type === 'speed').length < 2) {
     spawn('speed');
   }
+
+  // One clearly visible clue card begins every round. It remains in the
+  // field long enough for a human Runner to notice and collect it.
+  while (items.filter(item => item.type === 'intel').length < CONFIG.INTEL_MAX) {
+    const location = chooseOpenSpawn('intel', CONFIG.ITEM_RADIUS_OTHER + 4);
+    createItemAt('intel', location.x, location.y, {
+      expiresAt: simTime + CONFIG.INTEL_LIFETIME,
+    });
+  }
+  state.intelTimer = randomBetween(CONFIG.INTEL_SPAWN_MIN, CONFIG.INTEL_SPAWN_MAX);
 
   while (combatItemCount('health') < CONFIG.MAX_HEALTH_ITEMS) {
     spawnCombatItem('health');
@@ -304,6 +314,7 @@ function applyRoundWords(index) {
   state.red = Array(words.red.length).fill(null);
   state.seconds = CONFIG.ROUND_SECONDS;
   state.spawnTimer = CONFIG.ITEM_SPAWN_INTERVAL;
+  state.intelTimer = CONFIG.INTEL_SPAWN_MIN;
   state.jammedUntil.blue = 0;
   state.jammedUntil.red = 0;
 

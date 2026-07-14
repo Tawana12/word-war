@@ -542,6 +542,7 @@
                 item.type === 'golden' ||
                 (
                   item.type === 'intel' &&
+                  !CONFIG.CLEAN_BUILD &&
                   !isTeamJammed(bot.team) &&
                   (!item.expiresAt || item.expiresAt > simTime)
                 )
@@ -760,6 +761,27 @@
         }
       };
 
+      function drawFieldPickupBeacon(item, color, label, radiusPad = 10) {
+        const pulse = 0.5 + 0.5 * Math.sin(simTime * 4.2 + item.x * 0.01);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(item.x, item.y, item.r + radiusPad + pulse * 3, 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 0.68 + pulse * 0.22;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.font = '900 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(20,22,26,0.9)';
+        ctx.strokeText(label, item.x, item.y - item.r - radiusPad - 7);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, item.x, item.y - item.r - radiusPad - 7);
+        ctx.restore();
+      }
+
       drawItems = function enhancedDrawItems() {
         for (const item of items) {
           if (item.type === 'letter') {
@@ -821,6 +843,7 @@
           }
 
           if (item.type === 'intel') {
+            drawFieldPickupBeacon(item, '#ffd54a', 'CLUE', 12);
             const timeLeft = Math.max(0, item.expiresAt - simTime);
             const pulse = 1 + Math.sin(simTime * 5) * 0.05;
             ctx.save();
@@ -846,6 +869,7 @@
           }
 
           if (item.type === 'health') {
+            drawFieldPickupBeacon(item, '#53e07d', 'HEAL', 10);
             const pulse = 1 + Math.sin(simTime * 5) * 0.06;
             ctx.save();
             ctx.translate(item.x, item.y);
@@ -863,6 +887,7 @@
           }
 
           if (item.type === 'gun') {
+            drawFieldPickupBeacon(item, '#5ca8ff', 'RIFLE', 10);
             ctx.save();
             ctx.translate(item.x, item.y);
             ctx.fillStyle = '#3486d9';
@@ -880,6 +905,7 @@
           }
 
           if (item.type === 'bomb') {
+            drawFieldPickupBeacon(item, '#ff6b6b', 'BOMB', 11);
             const profile = bombProfile(item.magnitude || 1);
             const flashing = item.ignited && Math.floor(simTime * 1000 / 110) % 2 === 0;
             ctx.beginPath();
@@ -931,6 +957,11 @@
             continue;
           }
 
+          if (item.type === 'speed') {
+            drawFieldPickupBeacon(item, '#5cff7a', 'SPEED', 10);
+          } else if (item.type === 'wall') {
+            drawFieldPickupBeacon(item, '#b6c0cf', 'BRICK', 8);
+          }
           ctx.beginPath();
           ctx.arc(item.x, item.y, item.r, 0, Math.PI * 2);
           ctx.fillStyle = item.type === 'wall' ? '#8892a3'

@@ -10,21 +10,23 @@ Object.assign(CONFIG, {
   CLEAN_BUILD: true,
   MAX_JAMMERS: 0,
   GOLDEN_MAX: 0,
-  INTEL_MAX: 0,
+  INTEL_MAX: 1,
+  INTEL_LIFETIME: 40,
+  INTEL_SPAWN_MIN: 24,
+  INTEL_SPAWN_MAX: 32,
 });
 
 // Remove experimental items that may have spawned while scripts loaded.
 for (let index = items.length - 1; index >= 0; index--) {
-  if (['jammer', 'intel', 'golden'].includes(items[index].type)) {
+  if (['jammer', 'golden'].includes(items[index].type)) {
     removeItem(items[index]);
   }
 }
 
 if (SUPPLY_PADS.jammer) SUPPLY_PADS.jammer.length = 0;
-if (SUPPLY_PADS.intel) SUPPLY_PADS.intel.length = 0;
 if (SUPPLY_PADS.golden) SUPPLY_PADS.golden.length = 0;
 
-state.intelTimer = Infinity;
+state.intelTimer = 12;
 state.worldEventTimer = Infinity;
 state.internalBombTimer = Infinity;
 state.activeEventUntil = 0;
@@ -68,8 +70,8 @@ winner = function humanWinner() {
 // Only the systems visible in the clean build appear in permissions/copy.
 Object.assign(ROLE_RULES.RUNNER, {
   job: 'Collect and steal',
-  summary: 'Letters · health · speed',
-  allowed: ['letter', 'health', 'speed'],
+  summary: 'Letters · clue cards · health · speed',
+  allowed: ['letter', 'intel', 'health', 'speed'],
 });
 Object.assign(ROLE_RULES.GUARDIAN, {
   job: 'Protect the word',
@@ -100,7 +102,7 @@ updateRoleStrip = function humanRoleStrip(role, duty = null) {
 
   if (role === 'RUNNER') {
     roleStripEl.innerHTML =
-      '<strong>RUNNER</strong>Collect, place or steal a letter · Space acts';
+      '<strong>RUNNER</strong>Collect letters or clue cards · place or steal · Space acts';
     return;
   }
 
