@@ -185,7 +185,7 @@
       const letterFlowTickBase = tick;
       tick = function letterFlowTick(dt) {
         letterFlowTickBase(dt);
-        if (state.over || !player) return;
+        if (state.over || !player || globalThis.isSoloFieldRunActive?.()) return;
         updateLetterFlowDirector(dt);
       };
 

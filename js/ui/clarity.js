@@ -67,7 +67,8 @@
       }
 
       function canActorCollectItem(actor, item) {
-        if (!actor || !item || actor.inv) return false;
+        if (!actor || !item) return false;
+        if (actor.inv && !globalThis.isInstantPowerupItem?.(item)) return false;
         if (!canCollectItem(actor.role, item)) return false;
 
         if (item.type === 'bomb' && item.ignited && isGuardianRole(actor)) {
@@ -111,7 +112,7 @@
 
       const permissionsPickup = pickup;
       pickup = function centralizedPermissionPickup(actor, item) {
-        if (!item || actor.inv || !isItemVisible(item)) return false;
+        if (!item || (actor.inv && !globalThis.isInstantPowerupItem?.(item)) || !isItemVisible(item)) return false;
         if (!canActorCollectItem(actor, item)) {
           if (actor.isPlayer) {
             msg(`${getItemDisplayName(item)}: ${getItemRoleLabel(item)}.`);

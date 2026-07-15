@@ -43,13 +43,21 @@ resumeBtnEl?.addEventListener('click', () => closePauseMenu());
 
 restartRoundBtnEl?.addEventListener('click', () => {
   closePauseMenu(false);
-  startDemoRound(state.demoMatch.roundIndex, { changeRole: false });
+  if (selectedSessionMode === SESSION_MODES.SOLO) {
+    globalThis.startSoloWord?.(state.soloRun?.roundIndex || 0);
+  } else {
+    startDemoRound(state.demoMatch.roundIndex, { changeRole: false });
+  }
   globalThis.playGameSound?.('uiClick');
 });
 
 restartMatchBtnEl?.addEventListener('click', () => {
   closePauseMenu(false);
-  initializeDemoMatch();
+  if (selectedSessionMode === SESSION_MODES.SOLO) {
+    globalThis.initializeSoloRun?.();
+  } else {
+    initializeDemoMatch();
+  }
   globalThis.playGameSound?.('uiClick');
 });
 

@@ -73,9 +73,15 @@
       function clearReservation(actor) { if (actor.reservedItem) itemReservations.delete(actor.reservedItem); actor.reservedItem = null; }
       function removeItem(it) { itemReservations.delete(it); const i = items.indexOf(it); if (i >= 0) items.splice(i, 1); }
 
+      function isInstantPowerupItem(item) {
+        return Boolean(item && (item.type === 'health' || item.type === 'speed'));
+      }
+
+      globalThis.isInstantPowerupItem = isInstantPowerupItem;
+
       // STRICT ROLE VALIDATION ON PICKUP
       function pickup(actor, it) {
-        if (!it || actor.inv || !isItemVisible(it)) return false;
+        if (!it || (actor.inv && !isInstantPowerupItem(it)) || !isItemVisible(it)) return false;
 
         if (it.type === 'letter' && !['OPERATOR', 'COLLECTOR'].includes(actor.role)) {
           if (actor.isPlayer) msg(`Rejected: Only Operators handle letters. You are a ${actor.role}.`);
@@ -471,6 +477,7 @@
           '#roleScreen',
           '#instructionScreen',
           '#roundScreen',
+          '#multiplayerLobbyScreen',
         ].some(selector => {
           const element = document.querySelector(selector);
           return element && !element.classList.contains('hidden');

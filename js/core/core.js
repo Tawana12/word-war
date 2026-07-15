@@ -18,24 +18,29 @@
         PLAYER_INPUT_DEADZONE: 0.012,
         // Mobile keeps quick straight-line response, but sharp direction
         // changes use a gentler rate in the renderer to remove thumb jitter.
-        MOBILE_INPUT_SMOOTH_RATE: 38,
-        MOBILE_TURN_SMOOTH_RATE: 34,
-        MOBILE_RELEASE_SMOOTH_RATE: 34,
+        MOBILE_INPUT_SMOOTH_RATE: 64,
+        MOBILE_TURN_SMOOTH_RATE: 42,
+        MOBILE_RELEASE_SMOOTH_RATE: 54,
         MOBILE_JOYSTICK_DEADZONE: 0.035,
-        MOBILE_JOYSTICK_FULL_SPEED_AT: 0.68,
-        MOBILE_JOYSTICK_RESPONSE_CURVE: 0.88,
+        MOBILE_JOYSTICK_FULL_SPEED_AT: 0.56,
+        MOBILE_JOYSTICK_RESPONSE_CURVE: 0.74,
         MOBILE_SPEED_MULTIPLIER: 1.10,
-        MOBILE_ACCEL_MULTIPLIER: 1.55,
-        MOBILE_DECEL_MULTIPLIER: 1.70,
+        MOBILE_ACCEL_MULTIPLIER: 2.25,
+        MOBILE_DECEL_MULTIPLIER: 2.10,
         MOBILE_PICKUP_ASSIST: 27,
         MOBILE_TARGET_RELEASE_PAD: 24,
         MOBILE_TARGET_LOCK_TIME: 0.62,
         MOBILE_FACING_WEIGHT: 38,
-        MOBILE_CAMERA_FOLLOW_RATE: 20,
-        // 0.90 shows roughly 10% more of the arena on landscape phones.
-        // Raise toward 1 to zoom in; lower toward 0.82 to zoom out further.
-        MOBILE_CAMERA_ZOOM: 0.90,
-        MOBILE_CAMERA_PLAYER_SCREEN_Y: 0.53,
+        MOBILE_CAMERA_FOLLOW_RATE: 30,
+        // Mobile canvas width relative to the available landscape viewport.
+        // The camera also respects the full-arena fit scale, so tall phones
+        // show the complete field while very wide phones crop only slightly.
+        MOBILE_CAMERA_ZOOM: 0.74,
+        // Portrait uses a closer, two-axis camera. The value is a multiplier
+        // on the fit-to-width scale, not an absolute canvas scale.
+        MOBILE_PORTRAIT_CAMERA_ZOOM: 1.82,
+        MOBILE_CAMERA_PLAYER_SCREEN_X: 0.50,
+        MOBILE_CAMERA_PLAYER_SCREEN_Y: 0.50,
         MOBILE_ACTION_BUFFER_TIME: 0.24,
         BOOST_MULTIPLIER: 1.6, BOOST_DURATION: 5,
 
@@ -108,6 +113,7 @@
         RUNNER: 310,
         GUARDIAN: 285,
         SABOTEUR: 280,
+        CAPTAIN: 305,
 
         // Legacy capability speeds remain available to the compatibility
         // adapter while the older systems are gradually migrated.
@@ -130,7 +136,7 @@
       }
 
       function isRunnerRole(value) {
-        return ['RUNNER', 'OPERATOR', 'COLLECTOR', 'RAIDER']
+        return ['RUNNER', 'OPERATOR', 'COLLECTOR', 'RAIDER', 'CAPTAIN']
           .includes(roleNameOf(value));
       }
 

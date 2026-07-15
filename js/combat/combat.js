@@ -213,6 +213,19 @@ action = function combatAction(actor) {
 };
 
 function weaponProfile(actor) {
+  if (globalThis.isSoloFieldRunActive?.() && actor?.soloShooter) {
+    return {
+      name: 'Hunter Pistol',
+      range: actor.soloShotRange || 410,
+      damage: actor.soloShotDamage || 8,
+      cooldown: actor.soloShotCooldown || 0.62,
+      burstSize: 2,
+      burstRecovery: 0.72,
+      speed: actor.soloShotSpeed || 610,
+      color: '#ff8c72',
+    };
+  }
+
   const rifleActive =
     actor.weaponTier >= 2 &&
     actor.gunAmmo > 0;
@@ -306,10 +319,11 @@ function sentryAimVector(defender) {
 }
 
 function legalDefenderTargets(defender) {
+  const soloOpenCombat = Boolean(globalThis.isSoloFieldRunActive?.());
   if (!defender || defender.alive === false ||
     typeof isInnerSentry !== 'function' ||
     !isInnerSentry(defender) ||
-    !insideRect(defender, BASES[defender.team])) return [];
+    (!soloOpenCombat && !insideRect(defender, BASES[defender.team]))) return [];
 
   const profile = weaponProfile(defender);
   return (ACTORS || []).filter(actor =>
@@ -373,12 +387,16 @@ function defenderShootTarget(defender) {
 }
 
 function shootDefender(defender, announceFailure = false, lockedTarget = null) {
+  const soloOpenCombat = Boolean(globalThis.isSoloFieldRunActive?.());
   if (!defender || defender.alive === false ||
     typeof isInnerSentry !== 'function' ||
     !isInnerSentry(defender) ||
-    !insideRect(defender, BASES[defender.team])) return false;
+    (!soloOpenCombat && !insideRect(defender, BASES[defender.team]))) return false;
 
-  if (defender.inv) {
+  const mayCarrySoloLetter = Boolean(
+    soloOpenCombat && defender.isPlayer && defender.inv?.type === 'letter'
+  );
+  if (defender.inv && !mayCarrySoloLetter) {
     if (announceFailure && defender.isPlayer) {
       msg('You cannot shoot while carrying an item.');
     }
@@ -534,7 +552,7 @@ function damageRaider(raider, damage, killer) {
 
   if (raider.health <= 0) {
     eliminateActor(raider, killer);
-  } else if (raider.isPlayer) {
+  } else if (raider.isPlayer && !globalThis.isSoloFieldRunActive?.()) {
     msg(`Hit! Runner health: ${Math.ceil(raider.health)}.`);
   }
 }
@@ -879,6 +897,23 @@ function collectTouchedHealth(actor) {
   return pack ? pickup(actor, pack) : false;
 }
 
+function isHumanControlledActor(actor) {
+  return Boolean(actor && (actor.isPlayer || actor.multiplayerHuman));
+}
+
+function collectTouchedSpeed(actor) {
+  if (!actor || actor.alive === false || !isHumanControlledActor(actor)) return false;
+  if ((actor.boost || 0) > 0.35) return false;
+
+  const boost = items.find(item =>
+    item.type === 'speed' &&
+    isItemVisible(item) &&
+    dist(actor, item) <= actor.r + item.r + 3
+  );
+
+  return boost ? pickup(actor, boost) : false;
+}
+
 const combatTickBase = tick;
 tick = function combatTick(dt) {
   combatTickBase(dt);
@@ -888,6 +923,7 @@ tick = function combatTick(dt) {
     actor.shootCooldown = Math.max(0, actor.shootCooldown - dt);
     actor.damageFlash = Math.max(0, actor.damageFlash - dt);
     collectTouchedHealth(actor);
+    collectTouchedSpeed(actor);
 
     if (isRunnerRole(actor) &&
       actor.alive === false &&
@@ -897,11 +933,14 @@ tick = function combatTick(dt) {
     }
   }
 
+  const soloLetterCargo = Boolean(
+    globalThis.isSoloFieldRunActive?.() && player?.inv?.type === 'letter'
+  );
   if (playerSentryFireHeld && player &&
     player.alive !== false &&
     typeof isInnerSentry === 'function' &&
     isInnerSentry(player) &&
-    !player.inv &&
+    (!player.inv || soloLetterCargo) &&
     !state.paused &&
     !state.over) {
     const nearbyDutyBomb = typeof nearestDutyBomb === 'function'

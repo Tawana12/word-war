@@ -1220,3 +1220,1027 @@ html.game-started .game-utilities {
     right: max(16px, calc(env(safe-area-inset-right) + 12px));
   }
 }
+
+/* Solo Fortress Run -------------------------------------------------- */
+.mode-actions {
+  width: min(430px, 100%);
+  display: grid;
+  gap: 9px;
+  margin: 0 auto;
+}
+
+.mode-actions .primary-action,
+.mode-secondary {
+  width: 100%;
+  min-height: 46px;
+}
+
+.mode-secondary {
+  padding: 11px 18px;
+  border: 1px solid #596271;
+  border-radius: 6px;
+  color: #edf1f5;
+  background: #252b33;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .7px;
+  cursor: pointer;
+}
+
+.mode-secondary:hover,
+.mode-secondary:focus-visible {
+  border-color: #eef2f6;
+  background: #303741;
+}
+
+.mode-multiplayer {
+  color: #aeb7c2;
+  border-style: dashed;
+}
+
+.solo-hud {
+  position: absolute;
+  top: 10px;
+  right: 58px;
+  z-index: 35;
+  min-width: 210px;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid #4f5864;
+  border-radius: 7px;
+  background: #171b20e8;
+  box-shadow: 0 4px 12px #0006;
+  color: #f5f7f9;
+}
+
+.solo-hud.hidden {
+  display: none !important;
+}
+
+.solo-stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #aeb7c2;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .5px;
+}
+
+.solo-stat strong {
+  color: #fff;
+  font-size: 11px;
+}
+
+.solo-health-stat {
+  min-width: 84px;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto 4px;
+  column-gap: 5px;
+}
+
+.solo-health-track {
+  grid-column: 1 / -1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #080a0d;
+}
+
+#soloHealthFill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #55c77a;
+  transition: width .14s linear, background .14s linear;
+}
+
+#soloHealthFill.danger {
+  background: #ef5e5e;
+}
+
+.solo-word-progress {
+  color: #f1ca5c;
+  font-size: 9px;
+  letter-spacing: .55px;
+  white-space: nowrap;
+}
+
+.solo-cover-status {
+  padding: 3px 6px;
+  border: 1px solid #6fbf83;
+  border-radius: 999px;
+  color: #caffd5;
+  background: #17331fdd;
+  font-size: 8px;
+  letter-spacing: .5px;
+  white-space: nowrap;
+}
+
+.solo-cover-status.hidden {
+  display: none !important;
+}
+
+html.solo-running .team.red,
+html.solo-running .round-status,
+html.solo-running .current-role {
+  display: none !important;
+}
+
+html.solo-running .team.blue {
+  top: 10px;
+  left: 10px;
+  width: min(255px, 31%);
+  padding: 6px 8px;
+}
+
+html.solo-running .team.blue .head {
+  display: none;
+}
+
+html.solo-running .team.blue .label {
+  color: #f1ca5c;
+  font-size: 7px;
+  letter-spacing: .45px;
+  white-space: nowrap;
+}
+
+/* Solo uses the canvas and controls only. Removing the footer keeps the
+   mobile view clear and prevents competing instruction text. */
+html.solo-running #gameBar {
+  display: none;
+}
+
+html.solo-running #wrap {
+  grid-template-rows: minmax(0, 1fr);
+  width: min(1500px, 100vw, calc(100dvh * 1.42857));
+}
+
+.solo-upgrade-screen {
+  z-index: 125;
+  text-align: center;
+  background: #12161bf2;
+}
+
+.solo-upgrade-screen h2 {
+  margin-bottom: 5px;
+}
+
+.solo-upgrade-summary {
+  margin-bottom: 12px;
+  color: #aeb8c3;
+  font-size: 11px;
+}
+
+.solo-upgrade-choices {
+  width: min(600px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.solo-upgrade-option {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid #596270;
+  border-radius: 8px;
+  color: #f5f7f9;
+  background: #252b33;
+  text-align: center;
+  cursor: pointer;
+}
+
+.solo-upgrade-option:hover,
+.solo-upgrade-option:focus-visible {
+  border-color: #f1ca5c;
+  background: #2f342d;
+}
+
+.solo-upgrade-option strong {
+  color: #f1ca5c;
+  font-size: 14px;
+}
+
+.solo-upgrade-option span {
+  color: #c7ced6;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.solo-briefing-screen {
+  text-align: center;
+}
+
+.solo-briefing-screen h2 {
+  margin-bottom: 8px;
+}
+
+.solo-briefing-intro {
+  width: min(520px, 100%);
+  margin: 0 auto 18px;
+  color: #d6dce3;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .solo-hud {
+    top: max(7px, env(safe-area-inset-top));
+    right: max(52px, calc(env(safe-area-inset-right) + 48px));
+    min-width: 190px;
+    gap: 7px;
+    padding: 5px 7px;
+  }
+
+  html.touch-ui .solo-stat {
+    font-size: 7px;
+  }
+
+  html.touch-ui .solo-stat strong,
+  html.touch-ui .solo-word-progress {
+    font-size: 9px;
+  }
+
+  html.touch-ui.solo-running .team.blue {
+    top: max(7px, env(safe-area-inset-top));
+    left: max(7px, env(safe-area-inset-left));
+    width: min(230px, 29vw);
+  }
+
+  html.touch-ui .solo-upgrade-screen {
+    padding: 10px max(16px, env(safe-area-inset-right)) 9px max(16px, env(safe-area-inset-left));
+  }
+
+  html.touch-ui .solo-upgrade-choices {
+    width: min(680px, 88vw);
+    gap: 7px;
+  }
+
+  html.touch-ui .solo-upgrade-option {
+    min-height: 72px;
+    padding: 8px 10px;
+  }
+
+  html.touch-ui .solo-upgrade-option strong {
+    font-size: 11px;
+  }
+
+  html.touch-ui .solo-upgrade-option span {
+    font-size: 8px;
+  }
+
+  html.touch-ui .solo-briefing-screen {
+    padding-top: 12px;
+    padding-bottom: 10px;
+  }
+
+  html.touch-ui .solo-briefing-screen h2 {
+    font-size: clamp(22px, 7dvh, 32px);
+  }
+
+  html.touch-ui .solo-briefing-intro {
+    margin-bottom: 12px;
+    font-size: 10px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .solo-hud {
+    min-width: 170px;
+    gap: 5px;
+  }
+
+  html.touch-ui .solo-health-stat {
+    min-width: 66px;
+  }
+
+  html.touch-ui.solo-running .team.blue {
+    width: min(205px, 28vw);
+  }
+}
+
+@media (max-width: 680px) and (orientation: portrait) {
+  .solo-upgrade-choices {
+    grid-template-columns: 1fr;
+    width: min(360px, 100%);
+  }
+}
+
+/* Solo Word Hunt mobile viewport -----------------------------------------
+   Solo deliberately owns the complete landscape viewport. The normal app
+   wrapper keeps Faction Battle's 10:7 frame, but that sizing caused solo HUD
+   and thumb controls to be positioned outside short, wide phone screens. */
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui.solo-running body {
+    display: block;
+    width: 100vw;
+    height: 100dvh;
+  }
+
+  html.touch-ui.solo-running #wrap {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  html.touch-ui.solo-running #stage {
+    width: 100vw;
+    height: 100dvh;
+    aspect-ratio: auto;
+    background: #8d908c;
+  }
+
+  html.touch-ui.solo-running #hudLayer,
+  html.touch-ui.solo-running .mobile-controls {
+    width: 100%;
+    height: 100%;
+  }
+
+  html.touch-ui.solo-running .solo-hud {
+    top: max(7px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+  }
+
+  html.touch-ui.solo-running .game-utilities {
+    top: max(48px, calc(env(safe-area-inset-top) + 42px));
+    right: max(9px, env(safe-area-inset-right));
+  }
+
+  html.touch-ui.solo-running .mobile-action {
+    right: max(24px, calc(env(safe-area-inset-right) + 16px));
+    bottom: max(24px, calc(env(safe-area-inset-bottom) + 15px));
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui.solo-running .solo-hud {
+    min-width: 178px;
+    right: max(7px, env(safe-area-inset-right));
+  }
+
+  html.touch-ui.solo-running .game-utilities {
+    top: max(43px, calc(env(safe-area-inset-top) + 37px));
+  }
+
+  html.touch-ui.solo-running .mobile-action {
+    right: max(19px, calc(env(safe-area-inset-right) + 12px));
+    bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
+  }
+}
+
+/* Devvit multiplayer lobby ---------------------------------------------- */
+.multiplayer-lobby-screen {
+  z-index: 132;
+  gap: 8px;
+  padding: 20px clamp(18px, 5vw, 48px);
+  color: #f5f7f9;
+  background: #171b20f5;
+  text-align: center;
+}
+
+.multiplayer-lobby-screen h2 {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 38px);
+}
+
+.lobby-kicker {
+  margin: 0;
+  color: #f1ca5c;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .24em;
+}
+
+.lobby-countdown {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 7px;
+  min-height: 56px;
+}
+
+.lobby-countdown strong {
+  color: #f1ca5c;
+  font-size: clamp(38px, 10vw, 62px);
+  line-height: 1;
+}
+
+.lobby-countdown span {
+  color: #a9b2bc;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.lobby-assignment {
+  min-width: min(330px, 88vw);
+  display: grid;
+  gap: 2px;
+  padding: 9px 16px;
+  border: 1px solid #4a535e;
+  border-radius: 9px;
+  background: #242a31;
+}
+
+.lobby-assignment span {
+  color: #8f9aa6;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .18em;
+}
+
+.lobby-assignment strong {
+  font-size: 17px;
+}
+
+.lobby-assignment small,
+.lobby-assignment .team-blue {
+  color: #7eb4ff;
+}
+
+.lobby-assignment .team-red {
+  color: #ff7b7b;
+}
+
+.lobby-player-count,
+.lobby-status {
+  margin: 0;
+  color: #b7c0c9;
+  font-size: 10px;
+}
+
+.lobby-status.error {
+  color: #ff8a8a;
+}
+
+.lobby-slot-list {
+  width: min(680px, 94vw);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.lobby-slot {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 6px 7px;
+  border: 1px solid #3e4650;
+  border-radius: 6px;
+  background: #20252b;
+  text-align: left;
+}
+
+.lobby-slot.blue {
+  border-top-color: #4b96ff;
+}
+
+.lobby-slot.red {
+  border-top-color: #f05f5f;
+}
+
+.lobby-slot.local {
+  outline: 2px solid #f1ca5c;
+  outline-offset: 1px;
+}
+
+.lobby-slot strong {
+  overflow: hidden;
+  color: #f1f3f5;
+  font-size: 8px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lobby-slot span {
+  overflow: hidden;
+  color: #8f9aa6;
+  font-size: 7px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .multiplayer-lobby-screen {
+    justify-content: center;
+    gap: 5px;
+    padding: max(8px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+  }
+
+  html.touch-ui .multiplayer-lobby-screen h2 {
+    font-size: clamp(20px, 6dvh, 30px);
+  }
+
+  html.touch-ui .lobby-countdown {
+    min-height: 40px;
+  }
+
+  html.touch-ui .lobby-countdown strong {
+    font-size: clamp(32px, 12dvh, 48px);
+  }
+
+  html.touch-ui .lobby-assignment {
+    min-width: min(310px, 55vw);
+    padding: 6px 12px;
+  }
+
+  html.touch-ui .lobby-slot-list {
+    width: min(720px, 84vw);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  html.touch-ui .lobby-slot {
+    padding: 4px 6px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .lobby-kicker,
+  html.touch-ui .lobby-player-count {
+    display: none;
+  }
+
+  html.touch-ui .lobby-slot-list {
+    width: min(760px, 90vw);
+  }
+}
+
+/* Multiplayer human presence + minimal lobby ----------------------------- */
+.multiplayer-presence {
+  position: absolute;
+  top: 94px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(18, 22, 27, .76);
+  color: #d8dde3;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: .55px;
+  white-space: nowrap;
+}
+
+.multiplayer-presence.hidden {
+  display: none !important;
+}
+
+html:not(.game-started) .multiplayer-presence,
+html.solo-running .multiplayer-presence {
+  display: none !important;
+}
+
+.multiplayer-lobby-screen {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(21, 25, 30, .97);
+}
+
+.lobby-minimal {
+  width: min(360px, 88vw);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.lobby-countdown {
+  min-height: 0;
+  display: grid;
+  gap: 2px;
+  align-items: center;
+}
+
+.lobby-countdown strong {
+  font-size: clamp(42px, 10vw, 58px);
+}
+
+.lobby-countdown span {
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .2em;
+}
+
+.lobby-assignment {
+  min-width: 0;
+  width: 100%;
+  gap: 4px;
+  padding: 9px 0;
+  border: 0;
+  border-top: 1px solid #3a4149;
+  border-bottom: 1px solid #3a4149;
+  border-radius: 0;
+  background: transparent;
+}
+
+.lobby-assignment strong {
+  font-size: 16px;
+}
+
+.lobby-player-list {
+  width: 100%;
+  max-height: 150px;
+  display: grid;
+  gap: 0;
+  overflow: auto;
+  border-top: 1px solid #30363d;
+}
+
+.lobby-player-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 2px;
+  border-bottom: 1px solid #30363d;
+  text-align: left;
+}
+
+.lobby-player-row strong,
+.lobby-player-row span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lobby-player-row strong {
+  color: #f1f3f5;
+  font-size: 10px;
+}
+
+.lobby-player-row span {
+  color: #939ca6;
+  font-size: 8px;
+}
+
+.lobby-player-row.local strong {
+  color: #f1ca5c;
+}
+
+.lobby-player-row.blue span {
+  color: #80b6ff;
+}
+
+.lobby-player-row.red span {
+  color: #ff8585;
+}
+
+.lobby-bot-summary {
+  padding: 8px 2px 0;
+  color: #828b95;
+  font-size: 8px;
+  text-align: left;
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .multiplayer-presence {
+    top: calc(max(8px, env(safe-area-inset-top)) + 75px);
+    font-size: 6.5px;
+  }
+
+  html.touch-ui .multiplayer-lobby-screen {
+    padding:
+      max(10px, env(safe-area-inset-top))
+      max(26px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(26px, env(safe-area-inset-left));
+  }
+
+  html.touch-ui .lobby-minimal {
+    width: min(440px, 66vw);
+    gap: 6px;
+  }
+
+  html.touch-ui .lobby-countdown strong {
+    font-size: clamp(34px, 12dvh, 48px);
+  }
+
+  html.touch-ui .lobby-assignment {
+    padding: 5px 0;
+  }
+
+  html.touch-ui .lobby-assignment strong {
+    font-size: 14px;
+  }
+
+  html.touch-ui .lobby-player-list {
+    max-height: min(132px, 34dvh);
+  }
+
+  html.touch-ui .lobby-player-row {
+    padding: 5px 2px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .lobby-minimal {
+    width: min(470px, 72vw);
+    gap: 4px;
+  }
+
+  html.touch-ui .lobby-kicker,
+  html.touch-ui .lobby-status {
+    display: block;
+  }
+
+  html.touch-ui .lobby-player-list {
+    max-height: 94px;
+  }
+}
+
+/* Final Devvit mobile viewport correction -------------------------------
+   Keep the action button reachable without pinning it to the browser corner.
+   This rule intentionally comes last so Solo and Multiplayer use the same
+   mobile placement. The floating joystick remains unchanged. */
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui .mobile-action,
+  html.touch-ui.solo-running .mobile-action {
+    right: clamp(52px, 7.5vw, 88px);
+    bottom: max(
+      clamp(60px, 17dvh, 94px),
+      calc(env(safe-area-inset-bottom) + 46px)
+    );
+    width: clamp(88px, 24dvh, 106px);
+    height: clamp(88px, 24dvh, 106px);
+    z-index: 92;
+  }
+
+  html.touch-ui #stage {
+    overflow: hidden;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui .mobile-action,
+  html.touch-ui.solo-running .mobile-action {
+    right: clamp(42px, 6.5vw, 66px);
+    bottom: max(
+      clamp(48px, 15dvh, 66px),
+      calc(env(safe-area-inset-bottom) + 36px)
+    );
+    width: clamp(82px, 23dvh, 96px);
+    height: clamp(82px, 23dvh, 96px);
+  }
+}
+
+
+
+/* Complete portrait UI ----------------------------------------------------
+   Compact HUD, reachable app controls and scroll-safe menus for Devvit. */
+@media (pointer: coarse) and (orientation: portrait) {
+  html.touch-ui .game-utilities {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    z-index: 240;
+    gap: 5px;
+  }
+
+  html.touch-ui .game-utilities .utility-button {
+    width: 40px;
+    height: 40px;
+    border-width: 2px;
+    font-size: 18px;
+    background: #171c22e8;
+  }
+
+  html.touch-ui.game-started:not(.round-ended):not(.game-paused)
+    .game-utilities .pause-button {
+    display: grid !important;
+  }
+
+  html.touch-ui:not(.game-started) .game-utilities .pause-button,
+  html.touch-ui.game-paused .game-utilities .pause-button {
+    display: none !important;
+  }
+
+  html.touch-ui .current-role {
+    top: calc(max(8px, env(safe-area-inset-top)) + 98px);
+    max-width: 72vw;
+    overflow: hidden;
+    padding: 3px 7px;
+    font-size: 7px;
+    text-overflow: ellipsis;
+  }
+
+  html.touch-ui .multiplayer-presence {
+    top: calc(max(8px, env(safe-area-inset-top)) + 119px);
+    font-size: 6px;
+  }
+
+  html.touch-ui .landing-screen {
+    justify-content: center;
+    text-align: center;
+  }
+
+  html.touch-ui .wordmark {
+    width: 100%;
+    margin-bottom: 10px;
+    font-size: clamp(48px, 17vw, 76px);
+  }
+
+  html.touch-ui .tagline {
+    margin: 5px auto 18px;
+    font-size: 16px;
+  }
+
+  html.touch-ui .mode-actions {
+    width: min(340px, 100%);
+    display: grid;
+    gap: 10px;
+  }
+
+  html.touch-ui .mode-actions button {
+    width: 100%;
+    min-height: 50px;
+  }
+
+  html.touch-ui .match-meta {
+    width: min(340px, 100%);
+    margin-top: 13px;
+    font-size: 10px;
+  }
+
+  html.touch-ui .role-screen {
+    justify-content: flex-start;
+    text-align: center;
+  }
+
+  html.touch-ui .role-screen h2,
+  html.touch-ui .role-list {
+    width: min(360px, 100%);
+  }
+
+  html.touch-ui .role-screen h2 {
+    margin: 0 auto 12px;
+    text-align: center;
+  }
+
+  html.touch-ui .role-list {
+    gap: 8px;
+  }
+
+  html.touch-ui .role-option {
+    min-height: 54px;
+    padding: 11px 13px;
+  }
+
+  html.touch-ui .instruction-screen {
+    justify-content: flex-start;
+    text-align: center;
+  }
+
+  html.touch-ui .instruction-aim,
+  html.touch-ui .instruction-job,
+  html.touch-ui .instruction-controls {
+    width: min(420px, 100%);
+    text-align: center;
+  }
+
+  html.touch-ui #tutorialCanvas {
+    width: min(420px, 100%);
+    margin: 8px auto 10px;
+  }
+
+  html.touch-ui .result-screen,
+  html.touch-ui .pause-menu,
+  html.touch-ui .solo-upgrade-screen,
+  html.touch-ui .multiplayer-lobby-screen {
+    align-items: center;
+    justify-content: flex-start;
+    text-align: center;
+  }
+
+  html.touch-ui .result-screen h2,
+  html.touch-ui .pause-menu h2 {
+    font-size: clamp(30px, 10vw, 44px);
+  }
+
+  html.touch-ui #resultText {
+    max-width: min(380px, 100%);
+    margin-bottom: 14px;
+  }
+
+  html.touch-ui .next-role-preview,
+  html.touch-ui #resultButton,
+  html.touch-ui .pause-actions {
+    width: min(350px, 100%);
+  }
+
+  html.touch-ui .pause-actions {
+    grid-template-columns: 1fr;
+  }
+
+  html.touch-ui .pause-actions .primary-action,
+  html.touch-ui .pause-secondary {
+    min-height: 48px;
+  }
+
+  html.touch-ui .solo-upgrade-choices {
+    width: min(360px, 100%);
+    grid-template-columns: 1fr;
+  }
+
+  html.touch-ui .solo-upgrade-option {
+    min-height: 76px;
+  }
+
+  html.touch-ui .multiplayer-lobby-screen {
+    padding-top: max(58px, calc(env(safe-area-inset-top) + 50px));
+  }
+
+  html.touch-ui .lobby-minimal {
+    width: min(360px, 100%);
+    gap: 8px;
+  }
+
+  html.touch-ui .lobby-player-list {
+    max-height: 34dvh;
+  }
+
+  html.touch-ui .lobby-player-row {
+    min-height: 38px;
+  }
+
+  /* Solo has one word panel and a compact status bar. */
+  html.touch-ui.solo-running .solo-hud {
+    top: max(7px, env(safe-area-inset-top));
+    left: max(7px, env(safe-area-inset-left));
+    right: max(98px, calc(env(safe-area-inset-right) + 90px));
+    width: auto;
+    min-width: 0;
+    grid-template-columns: minmax(82px, 1fr) auto auto;
+    gap: 6px;
+    padding: 5px 7px;
+  }
+
+  html.touch-ui.solo-running .solo-cover-status {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+  }
+
+  html.touch-ui.solo-running .timer {
+    top: calc(max(7px, env(safe-area-inset-top)) + 49px);
+  }
+
+  html.touch-ui.solo-running .team.blue {
+    top: calc(max(7px, env(safe-area-inset-top)) + 84px);
+    left: max(7px, env(safe-area-inset-left));
+    right: max(7px, env(safe-area-inset-right));
+    width: auto;
+    min-height: 38px;
+  }
+
+  html.touch-ui.solo-running .team.blue .label {
+    display: block;
+    font-size: 6px;
+  }
+
+  html.touch-ui.solo-running .team.blue .scramble {
+    font-size: clamp(11px, 3.5vw, 14px);
+    text-align: center;
+  }
+
+  html.touch-ui.solo-running .game-utilities {
+    top: max(7px, env(safe-area-inset-top));
+    right: max(7px, env(safe-area-inset-right));
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 380px) {
+  html.touch-ui .team {
+    width: calc(50vw - 9px);
+    padding: 4px 5px;
+  }
+
+  html.touch-ui .team .head {
+    font-size: 8px;
+  }
+
+  html.touch-ui .team .scramble {
+    font-size: 8px;
+  }
+
+  html.touch-ui .mobile-action,
+  html.touch-ui.solo-running .mobile-action {
+    right: max(12px, calc(env(safe-area-inset-right) + 8px));
+    width: 84px;
+    height: 84px;
+  }
+}

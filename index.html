@@ -16,24 +16,55 @@
         <div class="wordmark" aria-label="Word Wars">
           <span>WORD</span><span>WARS</span>
         </div>
-        <p class="tagline">Build your word. Break theirs.</p>
-        <button id="botModeBtn" class="primary-action" type="button">PLAY</button>
-        <p class="match-meta">5v5 · best of five · first to three</p>
+        <p class="tagline">Choose your battle.</p>
+        <div class="mode-actions">
+          <button id="soloModeBtn" class="primary-action mode-primary" type="button">SOLO WORD HUNT</button>
+          <button id="multiplayerModeBtn" class="mode-secondary mode-multiplayer" type="button">MULTIPLAYER</button>
+        </div>
+        <p class="match-meta">Multiplayer starts after 15 seconds. Empty roles become bots.</p>
         <div id="modeStatus" aria-live="polite"></div>
+      </div>
+
+      <div id="multiplayerLobbyScreen" class="overlay multiplayer-lobby-screen hidden" aria-live="polite">
+        <button id="multiplayerLobbyBackBtn" class="overlay-back" type="button">← Modes</button>
+        <div class="lobby-minimal">
+          <p class="lobby-kicker">MATCH LOBBY</p>
+          <div class="lobby-countdown" aria-label="Seconds until match starts">
+            <strong id="multiplayerCountdown">15</strong>
+            <span>STARTING</span>
+          </div>
+          <div class="lobby-assignment">
+            <strong id="multiplayerAssignment">Assigning role…</strong>
+            <small id="multiplayerTeam">Waiting for Devvit</small>
+          </div>
+          <p id="multiplayerPlayerCount" class="lobby-player-count">1 player · 9 bots</p>
+          <div id="multiplayerSlotList" class="lobby-player-list" aria-label="Players in lobby"></div>
+          <p id="multiplayerLobbyStatus" class="lobby-status">Connecting…</p>
+        </div>
       </div>
 
       <div class="hud" id="hudLayer" style="display:none;">
         <div class="timer" id="timer">1:30</div>
         <div class="round-status" id="roundStatus">Round 1 · 0–0</div>
         <div class="current-role" id="currentRoleChip">YOU: RUNNER</div>
+        <div id="multiplayerPresence" class="multiplayer-presence hidden" aria-live="polite">1 PLAYER · 9 BOTS</div>
+        <section id="soloHud" class="solo-hud hidden" aria-label="Word Hunt status">
+          <div class="solo-stat solo-health-stat">
+            <span>HP</span><strong id="soloHealthText">100</strong>
+            <div class="solo-health-track" aria-hidden="true"><div id="soloHealthFill"></div></div>
+          </div>
+          <strong id="soloWordProgress" class="solo-word-progress">WORD 1/5</strong>
+          <strong id="soloCoverStatus" class="solo-cover-status hidden">HIDDEN</strong>
+          <div class="solo-stat"><span>HUNTERS</span><strong id="soloKillsText">0</strong></div>
+        </section>
         <section class="team blue panel">
           <div class="head b">BLUE</div>
-          <div class="label">Letters to arrange</div>
+          <div class="label">JUMBLED — FORM A WORD</div>
           <div class="scramble" id="bs"></div>
         </section>
         <section class="team red panel">
           <div class="head r">RED</div>
-          <div class="label">Letters to arrange</div>
+          <div class="label">JUMBLED — FORM A WORD</div>
           <div class="scramble" id="rs"></div>
         </section>
       </div>
@@ -65,6 +96,14 @@
         </div>
       </div>
 
+      <div id="soloBriefingScreen" class="overlay solo-briefing-screen hidden">
+        <button id="soloBriefingBackBtn" class="overlay-back" type="button">← Modes</button>
+        <p class="instruction-role">SOLO WORD HUNT</p>
+        <h2>Build. Dodge. Shoot.</h2>
+        <p class="solo-briefing-intro">Walk over tiles to collect them. Rearrange the jumbled letters. Space / FIRE shoots.</p>
+        <button id="soloStartBtn" class="primary-action" type="button">START</button>
+      </div>
+
       <div id="instructionScreen" class="overlay instruction-screen hidden">
         <button id="instructionBackBtn" class="overlay-back" type="button">← Roles</button>
         <p class="instruction-role" id="instructionRole">Runner</p>
@@ -86,6 +125,13 @@
           <small id="nextRoleJob">Collect and arrange letters.</small>
         </div>
         <button id="resultButton" class="primary-action" type="button">NEXT ROUND</button>
+      </div>
+
+      <div id="soloUpgradeScreen" class="overlay solo-upgrade-screen hidden" aria-modal="true" role="dialog">
+        <p class="result-kicker">WORD COMPLETE</p>
+        <h2>Pick one</h2>
+        <p id="soloUpgradeSummary" class="solo-upgrade-summary">The field gets harder.</p>
+        <div id="soloUpgradeChoices" class="solo-upgrade-choices"></div>
       </div>
 
       <div id="roleAnnouncement" class="role-announcement hidden" aria-live="assertive">
@@ -166,8 +212,11 @@
   <script src="js/ui/instructions.js"></script>
   <script src="js/ui/mobile-controls.js"></script>
   <script src="js/features/demo-rounds.js"></script>
+  <script src="js/features/solo-fortress.js"></script>
   <script src="js/audio/sound-manager.js"></script>
   <script src="js/ui/pause-menu.js"></script>
+  <script src="js/net/multiplayer-runtime.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/net/karma-bridge.js"></script>
 </body>
 </html>

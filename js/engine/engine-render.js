@@ -127,10 +127,9 @@
         }
 
         if (usingAnalog) {
-          // Smooth mobile magnitude and direction separately. Interpolating the
-          // x/y vector directly makes sharp turns pass through zero, which feels
-          // like input lag. Angle interpolation keeps speed while the character
-          // rotates fluidly toward the thumb direction.
+          // Keep the thumb direction immediate and smooth only the amount of
+          // movement. This removes the delayed arc that previously made sharp
+          // mobile turns feel like the joystick was lagging behind.
           const currentMagnitude = Math.hypot(player.inputX, player.inputY);
           const targetMagnitude = rawLength;
           const magnitudeRate = targetMagnitude > currentMagnitude
@@ -140,31 +139,16 @@
           const nextMagnitude = currentMagnitude +
             (targetMagnitude - currentMagnitude) * magnitudeBlend;
 
-          let directionX = player.inputX;
-          let directionY = player.inputY;
           if (targetMagnitude > 0.001) {
-            const targetAngle = Math.atan2(iy, ix);
-            const currentAngle = currentMagnitude > 0.001
-              ? Math.atan2(player.inputY, player.inputX)
-              : targetAngle;
-            const angleDelta = Math.atan2(
-              Math.sin(targetAngle - currentAngle),
-              Math.cos(targetAngle - currentAngle)
-            );
-            const turnBlend = 1 - Math.exp(-CONFIG.MOBILE_TURN_SMOOTH_RATE * dt);
-            const nextAngle = currentAngle + angleDelta * turnBlend;
-            directionX = Math.cos(nextAngle);
-            directionY = Math.sin(nextAngle);
+            player.inputX = (ix / targetMagnitude) * nextMagnitude;
+            player.inputY = (iy / targetMagnitude) * nextMagnitude;
           } else if (currentMagnitude > 0.001) {
-            directionX /= currentMagnitude;
-            directionY /= currentMagnitude;
+            player.inputX = (player.inputX / currentMagnitude) * nextMagnitude;
+            player.inputY = (player.inputY / currentMagnitude) * nextMagnitude;
           } else {
-            directionX = 0;
-            directionY = 0;
+            player.inputX = 0;
+            player.inputY = 0;
           }
-
-          player.inputX = directionX * nextMagnitude;
-          player.inputY = directionY * nextMagnitude;
         } else {
           const inputRate = rawLength
             ? CONFIG.PLAYER_INPUT_SMOOTH_RATE
@@ -186,7 +170,7 @@
         }
 
         if (smoothLength > 0.08) {
-          const facingRate = usingAnalog ? 14 : 10;
+          const facingRate = usingAnalog ? 22 : 10;
           const facingBlend = 1 - Math.exp(-facingRate * dt);
           const faceX = player.inputX / smoothLength;
           const faceY = player.inputY / smoothLength;
@@ -239,7 +223,8 @@
       }
 
       function drawPhysicalSlots() {
-        ['blue', 'red'].forEach(team => {
+        const teams = globalThis.isSoloFieldRunActive?.() ? ['blue'] : ['blue', 'red'];
+        teams.forEach(team => {
           const progress = state[team];
           const selectedPlayerSlot = player && player.team === team
             ? slotFromHorizontalPosition(player, team)
@@ -254,7 +239,7 @@
             const isFilled = Boolean(progress[i]);
             const isSelected = Boolean(
               selectedPlayerSlot && selectedPlayerSlot.index === i &&
-              player && ['OPERATOR', 'COLLECTOR'].includes(player.role) &&
+              player && ['OPERATOR', 'COLLECTOR', 'CAPTAIN'].includes(player.role) &&
               (player.inv?.type === 'letter' || (!player.inv && isFilled))
             );
 
@@ -307,7 +292,22 @@
       }
 
       function drawBases() {
-        for (const [team, base] of Object.entries(BASES)) {
+        const soloField = Boolean(globalThis.isSoloFieldRunActive?.());
+        const entries = soloField ? [['blue', BASES.blue]] : Object.entries(BASES);
+        for (const [team, base] of entries) {
+          if (soloField) {
+            ctx.fillStyle = 'rgba(22,26,31,0.86)';
+            ctx.fillRect(base.x, base.y, base.w, base.h);
+            ctx.strokeStyle = '#e4ca62';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(base.x, base.y, base.w, base.h);
+            ctx.fillStyle = '#e9d985';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('WORD DOCK', base.x + base.w / 2, base.y + 18);
+            continue;
+          }
+
           ctx.fillStyle = base.c + '15';
           ctx.fillRect(base.x, base.y, base.w, base.h);
           ctx.strokeStyle = base.c;
@@ -397,6 +397,7 @@
       }
 
       function drawSupplyPads() {
+        if (globalThis.isSoloFieldRunActive?.()) return;
         const drawPad = (point, color, icon, square = false) => {
           ctx.save();
           ctx.globalAlpha = 0.24;

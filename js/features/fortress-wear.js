@@ -93,7 +93,7 @@ function updateFortressDust(dt) {
 const fortressWearTickBase = tick;
 tick = function fortressWearTick(dt) {
   fortressWearTickBase(dt);
-  if (state.over || !ACTORS) return;
+  if (state.over || !ACTORS || globalThis.isSoloFieldRunActive?.()) return;
 
   fortressWearTimer -= dt;
   if (fortressWearTimer <= 0) {
@@ -107,6 +107,7 @@ tick = function fortressWearTick(dt) {
 const fortressWearEffectsBase = drawWorldEffects;
 drawWorldEffects = function fortressWearEffects() {
   fortressWearEffectsBase();
+  if (globalThis.isSoloFieldRunActive?.()) return;
 
   ctx.save();
   for (const dust of fortressDust) {

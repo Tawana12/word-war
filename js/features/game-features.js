@@ -423,7 +423,7 @@
 
       const basePickup = pickup;
       pickup = function enhancedPickup(actor, item) {
-        if (!item || actor.inv || !isItemVisible(item)) return false;
+        if (!item || (actor.inv && !globalThis.isInstantPowerupItem?.(item)) || !isItemVisible(item)) return false;
 
         if (item.type === 'intel') {
           if (actor.role !== 'OPERATOR') {

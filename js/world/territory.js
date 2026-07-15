@@ -6,6 +6,7 @@
 const TERRITORY_DIVIDER_X = CONFIG.W / 2;
 
 function pointInTeamTerritory(x, team, inset = 0) {
+  if (globalThis.isSoloFieldRunActive?.()) return true;
   return team === 'blue'
     ? x <= TERRITORY_DIVIDER_X - inset
     : x >= TERRITORY_DIVIDER_X + inset;
@@ -13,6 +14,7 @@ function pointInTeamTerritory(x, team, inset = 0) {
 
 function hasEnteredTeamTerritory(actor, team) {
   if (!actor) return false;
+  if (globalThis.isSoloFieldRunActive?.()) return actor.team !== team;
   const radius = Number.isFinite(actor.r) ? actor.r : 0;
 
   return team === 'blue'
@@ -21,6 +23,9 @@ function hasEnteredTeamTerritory(actor, team) {
 }
 
 function isTerritoryIntruder(actor, defendingTeam) {
+  if (globalThis.isSoloFieldRunActive?.()) {
+    return Boolean(actor && actor.alive !== false && actor.team !== defendingTeam);
+  }
   return Boolean(
     actor &&
     actor.alive !== false &&
@@ -31,12 +36,14 @@ function isTerritoryIntruder(actor, defendingTeam) {
 
 function actorTerritory(actor) {
   if (!actor) return null;
+  if (globalThis.isSoloFieldRunActive?.()) return 'open';
   if (actor.x < TERRITORY_DIVIDER_X) return 'blue';
   if (actor.x > TERRITORY_DIVIDER_X) return 'red';
   return 'line';
 }
 
 function drawTerritoryDivider() {
+  if (globalThis.isSoloFieldRunActive?.()) return;
   ctx.save();
 
   // Very light team tint, kept subtle so letters and players remain dominant.

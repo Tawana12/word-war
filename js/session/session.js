@@ -1,11 +1,97 @@
 'use strict';
 
 const SESSION_MODES = Object.freeze({
+  SOLO: 'solo',
   BOTS: 'bots',
   MULTIPLAYER: 'multiplayer',
 });
 
 let selectedSessionMode = null;
+
+const MULTIPLAYER_SLOT_LAYOUT = Object.freeze([
+  { id: 'blue-runner-1', team: 'blue', role: 'RUNNER', duty: null, label: 'Runner' },
+  { id: 'red-runner-1', team: 'red', role: 'RUNNER', duty: null, label: 'Runner' },
+  { id: 'blue-sentry', team: 'blue', role: 'GUARDIAN', duty: 'SENTRY', label: 'Inner Sentry' },
+  { id: 'red-sentry', team: 'red', role: 'GUARDIAN', duty: 'SENTRY', label: 'Inner Sentry' },
+  { id: 'blue-warden', team: 'blue', role: 'GUARDIAN', duty: 'WARDEN', label: 'Outer Warden' },
+  { id: 'red-warden', team: 'red', role: 'GUARDIAN', duty: 'WARDEN', label: 'Outer Warden' },
+  { id: 'blue-saboteur', team: 'blue', role: 'SABOTEUR', duty: null, label: 'Saboteur' },
+  { id: 'red-saboteur', team: 'red', role: 'SABOTEUR', duty: null, label: 'Saboteur' },
+  { id: 'blue-runner-2', team: 'blue', role: 'RUNNER', duty: null, label: 'Runner' },
+  { id: 'red-runner-2', team: 'red', role: 'RUNNER', duty: null, label: 'Runner' },
+]);
+
+function multiplayerSpawnPoint(slot) {
+  const base = BASES[slot.team];
+  const points = slot.team === 'blue'
+    ? {
+        'blue-runner-1': { x: base.x + 68, y: base.y + 44 },
+        'blue-runner-2': { x: base.x + 172, y: base.y + 44 },
+        'blue-sentry': { x: base.x + base.w / 2, y: base.y + base.h / 2 + 45 },
+        'blue-warden': { x: base.x + base.w + CONFIG.WALL_SIZE + 22, y: base.y + base.h / 2 },
+        'blue-saboteur': { x: base.x + base.w / 2, y: base.y + base.h - 38 },
+      }
+    : {
+        'red-runner-1': { x: base.x + 68, y: base.y + 44 },
+        'red-runner-2': { x: base.x + 172, y: base.y + 44 },
+        'red-sentry': { x: base.x + base.w / 2, y: base.y + base.h / 2 + 45 },
+        'red-warden': { x: base.x - CONFIG.WALL_SIZE - 22, y: base.y + base.h / 2 },
+        'red-saboteur': { x: base.x + base.w / 2, y: base.y + base.h - 38 },
+      };
+  return points[slot.id] || { x: base.x + base.w / 2, y: base.y + base.h / 2 };
+}
+
+function createMultiplayerRoster(room, identity) {
+  if (!room || !identity) return null;
+  const occupied = new Map((room.players || []).map(entry => [entry.slotId, entry]));
+  const allActors = [];
+  const aiBots = [];
+  const remoteHumans = [];
+  let localPlayer = null;
+
+  for (const slot of MULTIPLAYER_SLOT_LAYOUT) {
+    const occupant = occupied.get(slot.id) || null;
+    const isLocal = Boolean(occupant && occupant.userId === identity.userId);
+    const point = multiplayerSpawnPoint(slot);
+    const actor = createActor(
+      point.x,
+      point.y,
+      slot.team,
+      slot.role,
+      ROLE_SPEEDS[slot.role],
+      isLocal
+    );
+
+    actor.multiplayerSlotId = slot.id;
+    actor.multiplayerUserId = occupant?.userId || null;
+    actor.multiplayerUsername = occupant?.username || 'BOT';
+    actor.multiplayerHuman = Boolean(occupant);
+    actor.multiplayerConnected = occupant ? occupant.connected !== false : false;
+    actor.multiplayerBot = !occupant;
+    actor.publicRole = slot.role;
+
+    if (slot.role === 'GUARDIAN') {
+      setGuardianDuty(actor, slot.duty);
+      placeGuardianForDuty(actor);
+    }
+
+    if (isLocal) localPlayer = actor;
+    else if (occupant) remoteHumans.push(actor);
+    else aiBots.push(actor);
+    allActors.push(actor);
+  }
+
+  if (!localPlayer) return null;
+  return {
+    player: localPlayer,
+    bots: aiBots,
+    actors: allActors,
+    remoteHumans,
+  };
+}
+
+globalThis.MULTIPLAYER_SLOT_LAYOUT = MULTIPLAYER_SLOT_LAYOUT;
+globalThis.createMultiplayerRoster = createMultiplayerRoster;
 
 function assignGuardianDuties(roster, preferredPlayerDuty = null) {
   const guardians = roster.filter(actor => isGuardianRole(actor));
@@ -28,6 +114,28 @@ function assignGuardianDuties(roster, preferredPlayerDuty = null) {
   }
 
   guardians.forEach(placeGuardianForDuty);
+}
+
+
+function createSoloRoster() {
+  // Solo Word Hunt is intentionally not a team match. The Captain begins
+  // alone and dedicated Hunter enemies are spawned by solo-fortress.js.
+  const localPlayer = createActor(
+    CONFIG.W / 2,
+    CONFIG.H * 0.66,
+    'blue',
+    'CAPTAIN',
+    ROLE_SPEEDS.CAPTAIN,
+    true
+  );
+  localPlayer.publicRole = 'CAPTAIN';
+  localPlayer.maxHealth = 100;
+  localPlayer.health = 100;
+  localPlayer.weaponTier = 1;
+  localPlayer.gunAmmo = 0;
+  localPlayer.lives = 1;
+
+  return { player: localPlayer, bots: [] };
 }
 
 function createBotRoster(playerRole, playerDuty = null) {
@@ -103,11 +211,21 @@ function createBotRoster(playerRole, playerDuty = null) {
 }
 
 function createSessionRoster(playerRole, playerDuty = null) {
+  if (selectedSessionMode === SESSION_MODES.SOLO) {
+    return createSoloRoster();
+  }
+
   if (selectedSessionMode === SESSION_MODES.BOTS) {
     return createBotRoster(playerRole, playerDuty);
   }
 
-  msg('This build currently runs bot matches.');
+  if (selectedSessionMode === SESSION_MODES.MULTIPLAYER) {
+    return createMultiplayerRoster(
+      globalThis.multiplayerRoomState,
+      globalThis.multiplayerIdentity
+    );
+  }
+
   return null;
 }
 
@@ -124,6 +242,7 @@ function openRoleSelection() {
   modeScreen?.classList.add('hidden');
   document.querySelector('#instructionScreen')?.classList.add('hidden');
   document.querySelector('#roundScreen')?.classList.add('hidden');
+  document.querySelector('#multiplayerLobbyScreen')?.classList.add('hidden');
   roleScreen.classList.remove('hidden');
 
   const hint = document.querySelector('#contextHint');
@@ -136,31 +255,33 @@ function openModeSelection() {
   roleScreen.classList.add('hidden');
   document.querySelector('#instructionScreen')?.classList.add('hidden');
   document.querySelector('#roundScreen')?.classList.add('hidden');
+  document.querySelector('#multiplayerLobbyScreen')?.classList.add('hidden');
 }
 
 function initializeSessionMenu() {
-  const botButton = document.querySelector('#botModeBtn');
+  const soloButton = document.querySelector('#soloModeBtn');
   const multiplayerButton = document.querySelector('#multiplayerModeBtn');
   const backButton = document.querySelector('#backToModeBtn');
 
-  botButton?.addEventListener('click', () => {
-    selectedSessionMode = SESSION_MODES.BOTS;
+  soloButton?.addEventListener('click', () => {
+    selectedSessionMode = SESSION_MODES.SOLO;
     showModeStatus('');
-    openRoleSelection();
+    globalThis.openSoloBriefing?.();
   });
 
   multiplayerButton?.addEventListener('click', () => {
     selectedSessionMode = SESSION_MODES.MULTIPLAYER;
+    showModeStatus('');
 
     if (!multiplayerAdapter.isAvailable()) {
-      showModeStatus(
-        'The multiplayer interface is ready, but the Devvit transport is not connected yet. Implement js/net/multiplayer-adapter.js.',
-        true
-      );
+      showModeStatus('Open this game through its Reddit post to join multiplayer.', true);
       return;
     }
 
-    openRoleSelection();
+    document.querySelector('#modeScreen')?.classList.add('hidden');
+    roleScreen.classList.add('hidden');
+    document.querySelector('#multiplayerLobbyScreen')?.classList.remove('hidden');
+    globalThis.joinMultiplayerLobby?.();
   });
 
   backButton?.addEventListener('click', () => {

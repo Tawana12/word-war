@@ -38,7 +38,7 @@
       const shiftingMazeTickBase = tick;
       tick = function shiftingMazeTick(dt) {
         shiftingMazeTickBase(dt);
-        if (state.over || !player) return;
+        if (state.over || !player || globalThis.isSoloFieldRunActive?.()) return;
         updateShiftingMaze(dt);
         refreshNavigationRevision();
       };

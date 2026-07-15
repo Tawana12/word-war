@@ -24,6 +24,7 @@ const mobileLandscapeQuery = window.matchMedia('(orientation: landscape)');
 let joystickPointerId = null;
 let joystickOriginX = 0;
 let joystickOriginY = 0;
+let mobileCameraLeft = null;
 let mobileCameraTop = null;
 let mobileLabelTimer = 0;
 let mobileTargetLock = { item: null, until: 0 };
@@ -34,12 +35,15 @@ function mobileGameplayLayoutActive() {
 }
 
 function resetMobileCameraStyles() {
+  mobileCameraLeft = null;
   mobileCameraTop = null;
   if (!mobileGameCanvas) return;
   mobileGameCanvas.style.transform = '';
   mobileGameCanvas.style.width = '';
+  mobileGameCanvas.style.height = '';
   mobileGameCanvas.style.left = '';
   mobileGameCanvas.style.right = '';
+  mobileGameCanvas.style.top = '';
 }
 
 function resetMobileUiState() {
@@ -57,8 +61,23 @@ function resetMobileUiState() {
   resetMobileCameraStyles();
 }
 
+let mobileLayoutFrame = 0;
 function refreshMobileLayout() {
-  requestAnimationFrame(() => updateMobileCamera(1 / 60, true));
+  cancelAnimationFrame(mobileLayoutFrame);
+  mobileLayoutFrame = requestAnimationFrame(() => {
+    updateMobileCamera(1 / 60, true);
+
+    // Devvit's expanded iframe can settle one frame after an orientation or
+    // fullscreen change. Re-measure once more so the canvas never keeps the
+    // temporary, overly zoomed dimensions.
+    mobileLayoutFrame = requestAnimationFrame(() => {
+      updateMobileCamera(1 / 60, true);
+    });
+  });
+}
+
+function mobileTouchReady() {
+  return touchUI;
 }
 
 function mobileLandscapeReady() {
@@ -77,11 +96,15 @@ function mobileGameIsActive() {
 }
 
 function syncMobileOrientation() {
-  const ready = mobileLandscapeReady();
-  document.documentElement.classList.toggle('mobile-landscape', ready);
-  rotateOverlayEl?.setAttribute('aria-hidden', ready ? 'true' : 'false');
-  if (!ready) resetMobileUiState();
-  else refreshMobileLayout();
+  if (!touchUI) return;
+  const landscape = mobileLandscapeReady();
+  document.documentElement.classList.toggle('mobile-landscape', landscape);
+  document.documentElement.classList.toggle('mobile-portrait', !landscape);
+
+  // Reddit's mobile webview may not rotate even when orientation locking is
+  // requested. Portrait is therefore a supported play layout, not a blocker.
+  rotateOverlayEl?.setAttribute('aria-hidden', 'true');
+  refreshMobileLayout();
 }
 
 function resetJoystick() {
@@ -172,7 +195,7 @@ function updateJoystickFromPoint(clientX, clientY) {
 }
 
 function beginFloatingJoystick(event) {
-  if (!mobileLandscapeReady() || !mobileGameIsActive()) return;
+  if (!mobileTouchReady() || !mobileGameIsActive()) return;
   if (event.target.closest('button, a, input, [role="button"]')) return;
   if (!mobileStageEl) return;
 
@@ -191,13 +214,25 @@ mobileStageEl?.addEventListener('pointerdown', beginFloatingJoystick, {
   passive: false,
 });
 
-mobileStageEl?.addEventListener('pointermove', event => {
+function handleJoystickMove(event) {
   if (event.pointerId !== joystickPointerId) return;
   event.preventDefault();
   const samples = event.getCoalescedEvents?.();
   const latest = samples?.length ? samples[samples.length - 1] : event;
   updateJoystickFromPoint(latest.clientX, latest.clientY);
-}, { passive: false });
+}
+
+// Keep the normal pointer stream on every browser. Where raw pointer samples
+// exist, listen to those as well; relying on raw events alone caused some
+// embedded mobile browsers to update the stick only intermittently.
+mobileStageEl?.addEventListener('pointermove', handleJoystickMove, {
+  passive: false,
+});
+if ('onpointerrawupdate' in window) {
+  mobileStageEl?.addEventListener('pointerrawupdate', handleJoystickMove, {
+    passive: false,
+  });
+}
 
 for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture']) {
   mobileStageEl?.addEventListener(eventName, event => {
@@ -330,7 +365,7 @@ function actionLabelFromContext(target = null) {
 function triggerMobileAction(event) {
   event.preventDefault();
   event.stopPropagation();
-  if (!mobileLandscapeReady() || !player || state.over) return;
+  if (!mobileTouchReady() || !player || state.over) return;
 
   const context = typeof getContextTarget === 'function'
     ? getContextTarget()
@@ -380,10 +415,9 @@ for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
 function updateMobileCamera(dt = 1 / 60, immediate = false) {
   if (!mobileGameCanvas || !mobileStageEl) return;
 
-  // Menus always use the normal, untransformed stage. The mobile camera is
-  // enabled only after a match has started, which prevents a return to the
-  // main menu from carrying stale width/translate values into the next game.
-  if (!mobileLandscapeReady() || !mobileGameplayLayoutActive()) {
+  // Menus always use the normal stage. Gameplay uses a responsive camera in
+  // either orientation, because Reddit's mobile webview may remain portrait.
+  if (!mobileTouchReady() || !mobileGameplayLayoutActive()) {
     resetMobileCameraStyles();
     return;
   }
@@ -391,39 +425,72 @@ function updateMobileCamera(dt = 1 / 60, immediate = false) {
   const rect = mobileStageEl.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
 
-  // Keep desktop untouched. On landscape phones, render the arena slightly
-  // narrower and centre it so players can see more of the battlefield.
-  const zoom = Math.max(0.78, Math.min(1, CONFIG.MOBILE_CAMERA_ZOOM || 0.90));
-  const canvasWidth = rect.width * zoom;
-  const canvasLeft = (rect.width - canvasWidth) / 2;
-  mobileGameCanvas.style.width = `${canvasWidth.toFixed(2)}px`;
-  mobileGameCanvas.style.left = `${canvasLeft.toFixed(2)}px`;
-  mobileGameCanvas.style.right = 'auto';
+  const portrait = rect.height > rect.width;
+  const widthScale = rect.width / CONFIG.W;
+  const heightScale = rect.height / CONFIG.H;
+  const fitScale = Math.min(widthScale, heightScale);
 
-  const scale = canvasWidth / CONFIG.W;
+  let scale;
+  if (portrait) {
+    // Show a useful amount of the arena while keeping actors and letters
+    // readable. The camera follows horizontally, so portrait does not need to
+    // shrink the entire 1000px-wide field into a tiny strip.
+    const portraitZoom = Math.max(
+      1.35,
+      Math.min(2.1, CONFIG.MOBILE_PORTRAIT_CAMERA_ZOOM || 1.82)
+    );
+    const preferredScale = widthScale * portraitZoom;
+    const heightSafeScale = heightScale * 0.84;
+    scale = Math.max(fitScale, Math.min(preferredScale, heightSafeScale));
+  } else {
+    // Preserve the established landscape view.
+    const zoom = Math.max(0.66, Math.min(1, CONFIG.MOBILE_CAMERA_ZOOM || 0.74));
+    const desiredScale = widthScale * zoom;
+    scale = Math.max(fitScale, Math.min(widthScale, desiredScale));
+  }
+
+  const canvasWidth = CONFIG.W * scale;
   const renderedHeight = CONFIG.H * scale;
-  let desiredTop;
+  mobileGameCanvas.style.width = `${canvasWidth.toFixed(2)}px`;
+  mobileGameCanvas.style.height = `${renderedHeight.toFixed(2)}px`;
+  mobileGameCanvas.style.right = 'auto';
+  mobileGameCanvas.style.top = '0px';
 
+  let desiredLeft;
+  if (!portrait || canvasWidth <= rect.width) {
+    desiredLeft = (rect.width - canvasWidth) / 2;
+  } else {
+    const playerX = player?.x ?? CONFIG.W / 2;
+    desiredLeft =
+      rect.width * (CONFIG.MOBILE_CAMERA_PLAYER_SCREEN_X || 0.50) -
+      playerX * scale;
+    desiredLeft = Math.max(rect.width - canvasWidth, Math.min(0, desiredLeft));
+  }
+
+  let desiredTop;
   if (renderedHeight <= rect.height) {
     desiredTop = (rect.height - renderedHeight) / 2;
   } else {
     const playerY = player?.y ?? CONFIG.H / 2;
     desiredTop =
-      rect.height * (CONFIG.MOBILE_CAMERA_PLAYER_SCREEN_Y || 0.56) -
+      rect.height * (CONFIG.MOBILE_CAMERA_PLAYER_SCREEN_Y || 0.50) -
       playerY * scale;
     desiredTop = Math.max(rect.height - renderedHeight, Math.min(0, desiredTop));
   }
 
-  if (mobileCameraTop === null || immediate) {
+  if (mobileCameraLeft === null || immediate) {
+    mobileCameraLeft = desiredLeft;
     mobileCameraTop = desiredTop;
   } else {
     const rate = CONFIG.MOBILE_CAMERA_FOLLOW_RATE || 10;
     const blend = 1 - Math.exp(-rate * dt);
+    mobileCameraLeft += (desiredLeft - mobileCameraLeft) * blend;
     mobileCameraTop += (desiredTop - mobileCameraTop) * blend;
   }
 
+  mobileGameCanvas.style.left = '0px';
   mobileGameCanvas.style.transform =
-    `translate3d(0, ${mobileCameraTop.toFixed(2)}px, 0)`;
+    `translate3d(${mobileCameraLeft.toFixed(2)}px, ${mobileCameraTop.toFixed(2)}px, 0)`;
 }
 
 const mobileControlsTickBase = tick;
@@ -508,22 +575,17 @@ async function enterLandscapeFullscreen() {
   try {
     if (!activeFullscreenElement()) await requestGameFullscreen();
   } catch (_error) {
-    // Embedded previews and iOS can block element fullscreen.
-  }
-
-  try {
-    await screen.orientation?.lock?.('landscape');
-  } catch (_error) {
-    // The rotate overlay remains available when orientation lock is blocked.
+    // Reddit mobile and iOS may block element fullscreen. The responsive
+    // portrait layout remains fully playable when that happens.
   }
   syncFullscreenButton();
+  refreshMobileLayout();
 }
 
 async function toggleFullscreen() {
   try {
     if (!activeFullscreenElement()) {
       await requestGameFullscreen();
-      if (touchUI) await screen.orientation?.lock?.('landscape');
     } else {
       await exitGameFullscreen();
     }

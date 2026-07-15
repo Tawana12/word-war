@@ -73,11 +73,15 @@ function hideAllAppOverlays() {
   roleScreen?.classList.add('hidden');
   document.querySelector('#instructionScreen')?.classList.add('hidden');
   document.querySelector('#roundScreen')?.classList.add('hidden');
+  document.querySelector('#soloBriefingScreen')?.classList.add('hidden');
+  document.querySelector('#soloUpgradeScreen')?.classList.add('hidden');
   document.querySelector('#pauseMenu')?.classList.add('hidden');
+  document.querySelector('#multiplayerLobbyScreen')?.classList.add('hidden');
 }
 
 function returnToMainMenu() {
   closePauseMenu?.(false);
+  globalThis.endMultiplayerRuntime?.();
 
   state.paused = false;
   state.over = true;
@@ -105,6 +109,7 @@ function returnToMainMenu() {
   pendingRole = null;
   pendingDuty = null;
   selectedSessionMode = null;
+  globalThis.resetSoloRun?.();
   showModeStatus?.('');
 
   document.documentElement.classList.remove(
@@ -123,7 +128,7 @@ function returnToMainMenu() {
     roleStripEl.innerHTML =
       '<strong>WORD WARS</strong>Move with WASD or arrows · Space acts';
   }
-  if (contextHintEl) contextHintEl.textContent = 'Choose a role.';
+  if (contextHintEl) contextHintEl.textContent = 'Choose a mode.';
   if (msgEl) msgEl.textContent = 'Complete your word before the other team.';
   if (timerEl) timerEl.textContent = '1:30';
   document.querySelector('#currentRoleChip')?.replaceChildren(
@@ -177,7 +182,11 @@ function startGame(playerRole, playerDuty = null) {
   if (hudLayer) hudLayer.style.display = 'block';
 
   updateRoleStrip(player.role, player.guardianDuty || null);
-  initializeDemoMatch();
+  if (selectedSessionMode === SESSION_MODES.SOLO) {
+    globalThis.initializeSoloRun?.();
+  } else {
+    initializeDemoMatch();
+  }
   updateActorTreeCover();
   updateContextHint();
   hud();
@@ -193,16 +202,96 @@ function startGame(playerRole, playerDuty = null) {
   if (!countdownId) {
     countdownId = setInterval(() => {
       if (!player || state.over || state.paused) return;
+      if (
+        selectedSessionMode === SESSION_MODES.MULTIPLAYER &&
+        globalThis.multiplayerRuntime?.active &&
+        !globalThis.multiplayerRuntime?.isHost
+      ) return;
 
       state.seconds = Math.max(0, state.seconds - 1);
       timerEl.textContent =
         Math.floor(state.seconds / 60) + ':' +
         String(state.seconds % 60).padStart(2, '0');
 
+      if (state.seconds === 0) {
+        if (selectedSessionMode === SESSION_MODES.SOLO) {
+          globalThis.resolveSoloTimedRound?.();
+        } else {
+          resolveTimedRound();
+        }
+      }
+    }, 1000);
+  }
+}
+
+function startMultiplayerGame(room, identity, assignment) {
+  if (!room || !identity || !assignment) return;
+  selectedSessionMode = SESSION_MODES.MULTIPLAYER;
+  globalThis.multiplayerRoomState = room;
+  globalThis.multiplayerIdentity = identity;
+
+  resetFreshMatchSystems();
+  const roster = createMultiplayerRoster(room, identity);
+  if (!roster) {
+    showModeStatus?.('Your assigned multiplayer slot could not be created.', true);
+    globalThis.returnToMainMenu?.();
+    return;
+  }
+
+  player = roster.player;
+  bots = roster.bots;
+  ACTORS = roster.actors;
+  state.paused = false;
+
+  hideAllAppOverlays();
+  document.documentElement.classList.add('game-started');
+  document.documentElement.classList.remove('round-ended', 'game-paused');
+  if (hudLayer) hudLayer.style.display = 'block';
+
+  globalThis.beginMultiplayerRuntime?.(room, identity, assignment);
+  updateRoleStrip(player.role, player.guardianDuty || null);
+  initializeDemoMatch();
+  updateActorTreeCover();
+  updateContextHint();
+  hud();
+  globalThis.refreshMobileLayout?.();
+
+  const assignmentLabel = assignment.role === 'INNER_SENTRY'
+    ? 'INNER SENTRY'
+    : assignment.role === 'OUTER_WARDEN'
+      ? 'OUTER WARDEN'
+      : assignment.role;
+  document.querySelector('#currentRoleChip')?.replaceChildren(
+    document.createTextNode(`YOU: ${assignmentLabel}`)
+  );
+
+  window.parent.postMessage({
+    source: 'word-wars',
+    type: 'match-start',
+    mode: 'multiplayer',
+  }, '*');
+
+  last = performance.now();
+  accumulator = 0;
+  if (!gameLoopStarted) {
+    gameLoopStarted = true;
+    requestAnimationFrame(frame);
+  }
+
+  if (!countdownId) {
+    countdownId = setInterval(() => {
+      if (!player || state.over || state.paused) return;
+      if (!globalThis.multiplayerRuntime?.isHost) return;
+      state.seconds = Math.max(0, state.seconds - 1);
+      timerEl.textContent =
+        Math.floor(state.seconds / 60) + ':' +
+        String(state.seconds % 60).padStart(2, '0');
       if (state.seconds === 0) resolveTimedRound();
     }, 1000);
   }
 }
+
+globalThis.startMultiplayerGame = startMultiplayerGame;
 
 function initializeDemoMatch() {
   resetFreshMatchSystems();
