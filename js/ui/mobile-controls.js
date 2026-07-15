@@ -44,6 +44,7 @@ function resetMobileCameraStyles() {
 
 function resetMobileUiState() {
   resetJoystick();
+  globalThis.setInnerSentryFireHeld?.(false);
   mobileTargetLock = { item: null, until: 0 };
   mobileActionBufferedUntil = 0;
   mobileLabelTimer = 0;
@@ -306,11 +307,12 @@ function actionLabelFromContext(target = null) {
     return 'ACT';
   }
 
+  if (context.kind === 'aim') return 'AIM';
   if (context.kind === 'raider') {
     if (typeof isOuterWarden === 'function' && isOuterWarden(player)) {
       return 'BLOCK';
     }
-    return 'SHOOT';
+    return 'FIRE';
   }
   if (context.allowed === false) return 'BLOCKED';
   if (context.kind === 'wall') return 'BUILD';
@@ -332,6 +334,11 @@ function triggerMobileAction(event) {
     ? getContextTarget()
     : null;
   mobileActionBtn?.classList.add('pressed');
+  const disarmAction = Boolean(
+    context?.kind === 'item' &&
+    context.item?.type === 'bomb'
+  );
+  globalThis.setInnerSentryFireHeld?.(!disarmAction);
 
   const hadInventory = Boolean(player.inv);
   action(player);
@@ -345,7 +352,10 @@ function triggerMobileAction(event) {
   // A short mobile-only input buffer makes pickup feel forgiving while the
   // player is still gliding into range. Context-free inventory actions still
   // run immediately and are never repeated.
-  mobileActionBufferedUntil = !context && !hadInventory
+  const holdingSentryFire = Boolean(
+    typeof isInnerSentry === 'function' && isInnerSentry(player)
+  );
+  mobileActionBufferedUntil = !holdingSentryFire && !context && !hadInventory
     ? performance.now() / 1000 + (CONFIG.MOBILE_ACTION_BUFFER_TIME || 0.24)
     : 0;
 }
@@ -357,6 +367,7 @@ for (const eventName of ['pointerup', 'pointercancel', 'pointerleave']) {
   mobileActionBtn?.addEventListener(eventName, event => {
     event.preventDefault();
     mobileActionBtn.classList.remove('pressed');
+    globalThis.setInnerSentryFireHeld?.(false);
   });
 }
 

@@ -166,6 +166,7 @@ function restoreRoundWalls() {
 }
 
 function resetActorForRound(actor) {
+  if (actor?.isPlayer) globalThis.setInnerSentryFireHeld?.(false);
   actor.inv = null;
   actor.alive = true;
   actor.vx = 0;

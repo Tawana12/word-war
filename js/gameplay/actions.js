@@ -476,6 +476,14 @@
 
         keys[e.key.toLowerCase()] = true;
         if (e.code === 'Space') {
+          const context = typeof getContextTarget === 'function'
+            ? getContextTarget()
+            : null;
+          const disarmAction = Boolean(
+            context?.kind === 'item' &&
+            context.item?.type === 'bomb'
+          );
+          globalThis.setInnerSentryFireHeld?.(!disarmAction);
           if (!e.repeat && !spaceHeld) action(player);
           spaceHeld = true;
         }
@@ -486,11 +494,15 @@
         if (GAME_CONTROL_CODES.has(e.code)) e.preventDefault();
 
         keys[e.key.toLowerCase()] = false;
-        if (e.code === 'Space') spaceHeld = false;
+        if (e.code === 'Space') {
+          spaceHeld = false;
+          globalThis.setInnerSentryFireHeld?.(false);
+        }
       }, { passive: false });
       addEventListener('blur', () => {
         for (const key of Object.keys(keys)) keys[key] = false;
         spaceHeld = false;
+        globalThis.setInnerSentryFireHeld?.(false);
         if (player) {
           player.inputX = 0;
           player.inputY = 0;

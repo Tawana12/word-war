@@ -14,7 +14,7 @@ const INSTRUCTION_COPY = {
   },
   SENTRY: {
     name: 'Inner Sentry',
-    job: 'Stay inside the grid. Shoot enemy Runners only after they enter your territory.',
+    job: 'Stay inside the grid. Point with movement and hold Fire or Space when an enemy Runner enters your territory.',
   },
   WARDEN: {
     name: 'Outer Warden',
@@ -41,9 +41,16 @@ function openInstructionScreen(role, duty = null) {
   if (instructionRoleEl) instructionRoleEl.textContent = copy.name;
   if (instructionJobEl) instructionJobEl.textContent = copy.job;
   if (instructionControlsEl) {
-    instructionControlsEl.textContent = touchUI
-      ? 'Left thumb moves · the right button names the exact action or tile'
-      : 'Move with WASD or arrows · press Space on the highlighted target';
+    const key = instructionKey(role, duty);
+    if (key === 'SENTRY') {
+      instructionControlsEl.textContent = touchUI
+        ? 'Point with the joystick · hold FIRE to keep shooting · tap near a bomb to disarm'
+        : 'Point with WASD or arrows · hold Space to keep shooting · tap Space near a bomb to disarm';
+    } else {
+      instructionControlsEl.textContent = touchUI
+        ? 'Left thumb moves · the right button names the exact action or tile'
+        : 'Move with WASD or arrows · press Space on the highlighted target';
+    }
   }
 
   roleScreen?.classList.add('hidden');

@@ -90,7 +90,7 @@ updateRoleStrip = function humanRoleStrip(role, duty = null) {
 
   if (role === 'GUARDIAN' && duty === 'SENTRY') {
     roleStripEl.innerHTML =
-      '<strong>INNER SENTRY</strong>Stay inside · shoot intruders · disarm bombs · Space acts';
+      '<strong>INNER SENTRY</strong>Stay inside · point with movement · hold Space/FIRE · tap to disarm';
     return;
   }
 

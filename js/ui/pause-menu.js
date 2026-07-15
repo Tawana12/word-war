@@ -25,6 +25,7 @@ function openPauseMenu(playFx = true) {
   pauseMenuEl?.classList.remove('hidden');
   pauseBtnEl?.setAttribute('aria-expanded', 'true');
   if (typeof resetJoystick === 'function') resetJoystick();
+  globalThis.setInnerSentryFireHeld?.(false);
   if (playFx) globalThis.playGameSound?.('pause');
 }
 

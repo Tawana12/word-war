@@ -278,6 +278,21 @@ function closestGridIntruder(sentry) {
     })[0] || null;
 }
 
+function closestSentryWatchTarget(sentry) {
+  return (ACTORS || [])
+    .filter(actor =>
+      actor.alive !== false &&
+      actor.team !== sentry.team &&
+      isRunnerRole(actor) &&
+      actorsCanSee(sentry, actor)
+    )
+    .sort((a, b) => {
+      const aLoot = a.inv?.stolen && a.inv.stolenFrom === sentry.team ? 0 : 1;
+      const bLoot = b.inv?.stolen && b.inv.stolenFrom === sentry.team ? 0 : 1;
+      return (aLoot - bLoot) || (dist(sentry, a) - dist(sentry, b));
+    })[0] || null;
+}
+
 function closestOutsideThreat(warden) {
   return (ACTORS || [])
     .filter(actor =>
@@ -327,6 +342,7 @@ choose = function guardianZoneChoose(bot) {
     bot.sentryDisarmTimer = 0;
     const intruder = closestGridIntruder(bot);
     if (intruder) {
+      bot.sentryWatchTarget = intruder;
       bot.mode = 'SENTRY_TRACK';
       bot.target = {
         x: clamp(
@@ -343,6 +359,26 @@ choose = function guardianZoneChoose(bot) {
       return;
     }
 
+    // A Sentry that is not under attack still has a clear job: collect a
+    // rifle refill when available, then patrol while visually tracking the
+    // nearest enemy Runner across the field.
+    if (bot.weaponTier < 2 || bot.gunAmmo <= 4) {
+      const rifle = nearest(bot, item =>
+        item.type === 'gun' &&
+        !isReservedByOther(bot, item) &&
+        canActorCollectItem(bot, item)
+      );
+      if (rifle) {
+        bot.sentryWatchTarget = null;
+        bot.mode = 'FETCH_RIFLE';
+        bot.targetItem = rifle;
+        reserveItem(bot, rifle);
+        bot.target = { x: rifle.x, y: rifle.y };
+        return;
+      }
+    }
+
+    bot.sentryWatchTarget = closestSentryWatchTarget(bot);
     bot.mode = 'SENTRY_PATROL';
     bot.target = sentryPatrolPoint(bot);
     return;
@@ -388,6 +424,19 @@ updateBot = function guardianZoneUpdateBot(bot, dt) {
   if (!bot || !isGuardianRole(bot)) return;
 
   enforceGuardianZone(bot);
+
+  if (isInnerSentry(bot) && bot.sentryWatchTarget?.alive !== false &&
+    actorsCanSee(bot, bot.sentryWatchTarget)) {
+    const dx = bot.sentryWatchTarget.x - bot.x;
+    const dy = bot.sentryWatchTarget.y - bot.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const blend = 1 - Math.exp(-7.5 * dt);
+    bot.facingX += (dx / length - bot.facingX) * blend;
+    bot.facingY += (dy / length - bot.facingY) * blend;
+    const facingLength = Math.hypot(bot.facingX, bot.facingY) || 1;
+    bot.facingX /= facingLength;
+    bot.facingY /= facingLength;
+  }
 
   if (isInnerSentry(bot) && bot.mode === 'SENTRY_DISARM') {
     const bomb = bot.sentryBombTarget;

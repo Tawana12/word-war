@@ -15,6 +15,13 @@ Object.assign(CONFIG, {
 
   DEFENDER_AIM_TIME: 0.34,
 
+  // Human Inner Sentry aiming is directional but deliberately forgiving.
+  // The player points with movement/facing and may hold Fire/Space.
+  SENTRY_PLAYER_AIM_MIN_DOT: 0.30,
+  SENTRY_PLAYER_AIM_LATERAL_PAD: 92,
+  SENTRY_PLAYER_LEAD_FACTOR: 0.52,
+  SENTRY_PLAYER_AIM_LINE: 175,
+
   PISTOL_RANGE: 430,
   PISTOL_DAMAGE: 15,
   PISTOL_COOLDOWN: 0.21,
@@ -40,6 +47,14 @@ Object.assign(CONFIG, {
 
 const bullets = [];
 let combatSupplyTimer = 0;
+let playerSentryFireHeld = false;
+
+function setInnerSentryFireHeld(held) {
+  playerSentryFireHeld = Boolean(held);
+}
+
+globalThis.setInnerSentryFireHeld = setInnerSentryFireHeld;
+globalThis.isInnerSentryFireHeld = () => playerSentryFireHeld;
 
 SUPPLY_PADS.health = [
   { x: 245, y: 610 },
@@ -278,24 +293,76 @@ function clearShotLine(shooter, target) {
   return true;
 }
 
-function defenderShootTarget(defender) {
+function sentryAimVector(defender) {
+  const fallbackX = defender?.team === 'red' ? -1 : 1;
+  const rawX = Number.isFinite(defender?.facingX)
+    ? defender.facingX
+    : fallbackX;
+  const rawY = Number.isFinite(defender?.facingY)
+    ? defender.facingY
+    : 0;
+  const length = Math.hypot(rawX, rawY) || 1;
+  return { x: rawX / length, y: rawY / length };
+}
+
+function legalDefenderTargets(defender) {
   if (!defender || defender.alive === false ||
     typeof isInnerSentry !== 'function' ||
     !isInnerSentry(defender) ||
-    !insideRect(defender, BASES[defender.team])) return null;
+    !insideRect(defender, BASES[defender.team])) return [];
 
   const profile = weaponProfile(defender);
+  return (ACTORS || []).filter(actor =>
+    actor.alive !== false &&
+    isRunnerRole(actor) &&
+    actor.team !== defender.team &&
+    isTerritoryIntruder(actor, defender.team) &&
+    actorsCanSee(defender, actor) &&
+    dist(defender, actor) <= profile.range &&
+    clearShotLine(defender, actor)
+  );
+}
 
-  return (ACTORS || [])
-    .filter(actor =>
-      actor.alive !== false &&
-      isRunnerRole(actor) &&
-      actor.team !== defender.team &&
-      isTerritoryIntruder(actor, defender.team) &&
-      actorsCanSee(defender, actor) &&
-      dist(defender, actor) <= profile.range &&
-      clearShotLine(defender, actor)
-    )
+function directionalDefenderTarget(defender) {
+  const aim = sentryAimVector(defender);
+  const minDot = CONFIG.SENTRY_PLAYER_AIM_MIN_DOT;
+  const lateralPad = CONFIG.SENTRY_PLAYER_AIM_LATERAL_PAD;
+  let best = null;
+  let bestScore = -Infinity;
+
+  for (const actor of legalDefenderTargets(defender)) {
+    const dx = actor.x - defender.x;
+    const dy = actor.y - defender.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const dot = (dx / distance) * aim.x + (dy / distance) * aim.y;
+    const lateral = Math.abs(dx * aim.y - dy * aim.x);
+
+    // A wide cone keeps mobile aiming forgiving, while the lateral limit
+    // prevents a target far to the side from being selected accidentally.
+    if (dot < minDot || lateral > lateralPad + distance * 0.18) continue;
+
+    const carryingStolenLetter = Boolean(
+      actor.inv?.stolen && actor.inv.stolenFrom === defender.team
+    );
+    const score =
+      dot * 900 -
+      lateral * 2.7 -
+      distance * 0.30 +
+      (carryingStolenLetter ? 260 : 0);
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = actor;
+    }
+  }
+
+  return best;
+}
+
+function defenderShootTarget(defender) {
+  if (defender?.isPlayer) return directionalDefenderTarget(defender);
+
+  return legalDefenderTargets(defender)
     .sort((a, b) => {
       const aLoot =
         a.inv?.stolen && a.inv.stolenFrom === defender.team ? 0 : 1;
@@ -340,9 +407,23 @@ function shootDefender(defender, announceFailure = false, lockedTarget = null) {
   }
 
   const profile = weaponProfile(defender);
-  const dx = target.x - defender.x;
-  const dy = target.y - defender.y;
+  const currentDx = target.x - defender.x;
+  const currentDy = target.y - defender.y;
+  const currentDistance = Math.hypot(currentDx, currentDy) || 1;
+  const travelTime = currentDistance / profile.speed;
+  const leadFactor = defender.isPlayer
+    ? CONFIG.SENTRY_PLAYER_LEAD_FACTOR
+    : 0.36;
+  const aimX = target.x + (target.vx || 0) * travelTime * leadFactor;
+  const aimY = target.y + (target.vy || 0) * travelTime * leadFactor;
+  const dx = aimX - defender.x;
+  const dy = aimY - defender.y;
   const length = Math.hypot(dx, dy) || 1;
+
+  // A successful shot also settles the visible facing direction, making
+  // repeated fire feel connected to the direction the player is pointing.
+  defender.facingX = dx / length;
+  defender.facingY = dy / length;
 
   bullets.push({
     x: defender.x + (dx / length) * (defender.r + 5),
@@ -639,8 +720,19 @@ getContextTarget = function combatContextTarget() {
         actor: target,
         allowed: player.shootCooldown <= 0,
         text: player.shootCooldown <= 0
-          ? `Space: shoot intruder · ${weaponText}`
+          ? `Hold Space: fire toward intruder · ${weaponText}`
           : `${weaponText} reloading`,
+      };
+    }
+
+    const visibleIntruder = legalDefenderTargets(player)
+      .sort((a, b) => dist(player, a) - dist(player, b))[0] || null;
+    if (visibleIntruder) {
+      return {
+        kind: 'aim',
+        actor: visibleIntruder,
+        allowed: false,
+        text: 'Point toward the intruder, then hold Fire / Space',
       };
     }
   }
@@ -805,6 +897,28 @@ tick = function combatTick(dt) {
     }
   }
 
+  if (playerSentryFireHeld && player &&
+    player.alive !== false &&
+    typeof isInnerSentry === 'function' &&
+    isInnerSentry(player) &&
+    !player.inv &&
+    !state.paused &&
+    !state.over) {
+    const nearbyDutyBomb = typeof nearestDutyBomb === 'function'
+      ? nearestDutyBomb(
+          player,
+          player.r + CONFIG.ITEM_RADIUS_OTHER + CONFIG.PICKUP_RANGE_PAD + 8
+        )
+      : null;
+
+    // A nearby bomb keeps the action button dedicated to disarming. Otherwise
+    // holding Fire/Space repeatedly shoots as soon as the pointed target is legal.
+    if (!nearbyDutyBomb) {
+      const target = directionalDefenderTarget(player);
+      if (target) shootDefender(player, false, target);
+    }
+  }
+
   for (const defender of ACTORS) {
     updateDefenderFireControl(defender, dt);
   }
@@ -926,9 +1040,61 @@ drawActors = function combatDrawActors(alpha = 1) {
   }
 };
 
+function drawPlayerSentryAim(alpha = 1) {
+  if (!player || player.alive === false || state.over ||
+    typeof isInnerSentry !== 'function' ||
+    !isInnerSentry(player) || player.inv ||
+    !insideRect(player, BASES[player.team])) return;
+
+  const aim = sentryAimVector(player);
+  const target = directionalDefenderTarget(player);
+  const profile = weaponProfile(player);
+  const playerX = player.prevX + (player.x - player.prevX) * alpha;
+  const playerY = player.prevY + (player.y - player.prevY) * alpha;
+  const startX = playerX + aim.x * (player.r + 6);
+  const startY = playerY + aim.y * (player.r + 6);
+  const targetX = target
+    ? target.prevX + (target.x - target.prevX) * alpha
+    : null;
+  const targetY = target
+    ? target.prevY + (target.y - target.prevY) * alpha
+    : null;
+  const targetDistance = target
+    ? Math.hypot(targetX - playerX, targetY - playerY)
+    : 0;
+  const aimLength = target
+    ? Math.min(profile.range, targetDistance)
+    : Math.min(profile.range, CONFIG.SENTRY_PLAYER_AIM_LINE);
+  const endX = target ? targetX : startX + aim.x * aimLength;
+  const endY = target ? targetY : startY + aim.y * aimLength;
+  const ready = Boolean(target) && player.shootCooldown <= 0;
+
+  ctx.save();
+  ctx.globalAlpha = target ? 0.82 : 0.34;
+  ctx.strokeStyle = target ? (ready ? '#ffe46b' : '#ffc45c') : '#f7e79a';
+  ctx.lineWidth = target ? 2.5 : 1.5;
+  ctx.setLineDash(target ? [] : [5, 7]);
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (target) {
+    const pulse = 1 + Math.sin(simTime * 12) * 0.08;
+    ctx.beginPath();
+    ctx.arc(targetX, targetY, (target.r + 7) * pulse, 0, Math.PI * 2);
+    ctx.strokeStyle = ready ? '#ffe46b' : '#ffc45c';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 const combatDrawBase = draw;
 draw = function combatDraw(alpha = 1) {
   combatDrawBase(alpha);
+  drawPlayerSentryAim(alpha);
   drawBullets();
 };
 
@@ -956,6 +1122,8 @@ window.__wordWarsCombatDebug = {
       weapon: profile.name,
       range: profile.range,
       targetFound: Boolean(target),
+      directionalAim: player.isPlayer ? sentryAimVector(player) : null,
+      fireHeld: playerSentryFireHeld,
       targetDistance: target ? dist(player, target) : null,
       targetVisible: target ? actorsCanSee(player, target) : null,
       clearShot: target ? clearShotLine(player, target) : null,

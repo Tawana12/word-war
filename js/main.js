@@ -37,6 +37,7 @@ function clearPlayerInputState() {
   mobileInput.y = 0;
   mobileInput.active = false;
   spaceHeld = false;
+  globalThis.setInnerSentryFireHeld?.(false);
 }
 
 function resetFreshMatchSystems() {
