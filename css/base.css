@@ -98,8 +98,13 @@ canvas {
   padding: 7px 9px;
 }
 
-.team.blue { left: 10px; }
-.team.red { right: 10px; }
+.team.blue {
+  left: 10px;
+}
+
+.team.red {
+  right: 10px;
+}
 
 .head {
   margin-bottom: 3px;
@@ -108,8 +113,13 @@ canvas {
   letter-spacing: .8px;
 }
 
-.head.b { color: #72a7ff; }
-.head.r { color: #ff8181; }
+.head.b {
+  color: #72a7ff;
+}
+
+.head.r {
+  color: #ff8181;
+}
 
 .label {
   margin-bottom: 2px;
@@ -417,14 +427,37 @@ html.touch-ui .mobile-controls {
     padding: 5px 7px;
   }
 
-  .team.blue { left: 6px; }
-  .team.red { right: 6px; }
+  .team.blue {
+    left: 6px;
+  }
 
-  .head { font-size: 10px; }
-  .label { font-size: 7px; }
-  .scramble { font-size: 9px; letter-spacing: 1px; }
-  .timer { top: 6px; padding: 4px 8px; font-size: 13px; }
-  .round-status { top: 39px; font-size: 8px; }
+  .team.red {
+    right: 6px;
+  }
+
+  .head {
+    font-size: 10px;
+  }
+
+  .label {
+    font-size: 7px;
+  }
+
+  .scramble {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  .timer {
+    top: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  .round-status {
+    top: 39px;
+    font-size: 8px;
+  }
 
   #gameBar {
     grid-template-columns: 1fr;
@@ -599,11 +632,20 @@ body {
 }
 
 @keyframes rotate-phone {
-  0%, 22% { transform: rotate(0deg); }
-  58%, 100% { transform: rotate(90deg); }
+
+  0%,
+  22% {
+    transform: rotate(0deg);
+  }
+
+  58%,
+  100% {
+    transform: rotate(90deg);
+  }
 }
 
 @media (pointer: coarse) and (orientation: landscape) {
+
   html.touch-ui,
   html.touch-ui body {
     width: 100vw;
@@ -746,6 +788,7 @@ body {
 
 /* Final mobile landscape pass ------------------------------------------ */
 @media (pointer: coarse) and (orientation: portrait) {
+
   html.touch-ui,
   html.touch-ui body {
     width: 100%;
@@ -782,10 +825,7 @@ body {
     display: grid;
     place-items: center;
     padding:
-      max(24px, env(safe-area-inset-top))
-      max(24px, env(safe-area-inset-right))
-      max(24px, env(safe-area-inset-bottom))
-      max(24px, env(safe-area-inset-left));
+      max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
     background: #11151b;
     visibility: visible !important;
   }
@@ -825,6 +865,7 @@ body {
 }
 
 @media (pointer: coarse) and (orientation: landscape) {
+
   html.touch-ui,
   html.touch-ui body {
     width: 100%;
@@ -1036,6 +1077,7 @@ body {
    Reddit's mobile webview may stay portrait. The arena remains playable and
    the old rotate gate is disabled. This block intentionally comes last. */
 @media (pointer: coarse) and (orientation: portrait) {
+
   html.touch-ui,
   html.touch-ui body {
     width: 100%;
@@ -1207,5 +1249,45 @@ body {
 
   html.touch-ui button {
     touch-action: manipulation;
+  }
+}
+
+/* Portrait menu interaction repair ---------------------------------------
+   An older rotate-only rule disabled pointer events on every overlay in
+   portrait. The later responsive layout made those overlays visible again,
+   but taps still passed through to the canvas. Keep menus fully interactive
+   before and between matches while preserving touch gameplay afterwards. */
+@media (pointer: coarse) and (orientation: portrait) {
+  html.touch-ui .overlay:not(.rotate-overlay):not(.hidden) {
+    display: flex;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    z-index: 300 !important;
+  }
+
+  html.touch-ui .overlay:not(.rotate-overlay):not(.hidden),
+  html.touch-ui .overlay:not(.rotate-overlay):not(.hidden) * {
+    pointer-events: auto;
+  }
+
+  html.touch-ui .overlay.hidden {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html.touch-ui .overlay button,
+  html.touch-ui .overlay [role='button'],
+  html.touch-ui .overlay a {
+    position: relative;
+    z-index: 1;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The canvas is visual only. Pointer input is handled by #stage, which
+     prevents it from stealing taps from the menu layered above it. */
+  html.touch-ui #game {
+    pointer-events: none !important;
   }
 }
