@@ -194,7 +194,9 @@ mobileStageEl?.addEventListener('pointerdown', beginFloatingJoystick, {
 mobileStageEl?.addEventListener('pointermove', event => {
   if (event.pointerId !== joystickPointerId) return;
   event.preventDefault();
-  updateJoystickFromPoint(event.clientX, event.clientY);
+  const samples = event.getCoalescedEvents?.();
+  const latest = samples?.length ? samples[samples.length - 1] : event;
+  updateJoystickFromPoint(latest.clientX, latest.clientY);
 }, { passive: false });
 
 for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture']) {
@@ -427,7 +429,6 @@ function updateMobileCamera(dt = 1 / 60, immediate = false) {
 const mobileControlsTickBase = tick;
 tick = function mobileControlsTick(dt) {
   mobileControlsTickBase(dt);
-  updateMobileCamera(dt);
 
   const active = mobileGameIsActive();
   mobileControlsEl?.classList.toggle('game-active', active);
@@ -556,6 +557,7 @@ document.addEventListener('visibilitychange', () => {
 
 globalThis.resetMobileUiState = resetMobileUiState;
 globalThis.refreshMobileLayout = refreshMobileLayout;
+globalThis.updateMobileCameraFrame = updateMobileCamera;
 
 if (mobileControlsEl) {
   mobileControlsEl.setAttribute('aria-hidden', touchUI ? 'false' : 'true');

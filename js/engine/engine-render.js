@@ -126,32 +126,53 @@
           rawLength = 1;
         }
 
-        let inputRate = rawLength
-          ? (usingAnalog
-              ? CONFIG.MOBILE_INPUT_SMOOTH_RATE
-              : CONFIG.PLAYER_INPUT_SMOOTH_RATE)
-          : (usingAnalog
-              ? CONFIG.MOBILE_RELEASE_SMOOTH_RATE
-              : CONFIG.PLAYER_RELEASE_SMOOTH_RATE);
+        if (usingAnalog) {
+          // Smooth mobile magnitude and direction separately. Interpolating the
+          // x/y vector directly makes sharp turns pass through zero, which feels
+          // like input lag. Angle interpolation keeps speed while the character
+          // rotates fluidly toward the thumb direction.
+          const currentMagnitude = Math.hypot(player.inputX, player.inputY);
+          const targetMagnitude = rawLength;
+          const magnitudeRate = targetMagnitude > currentMagnitude
+            ? CONFIG.MOBILE_INPUT_SMOOTH_RATE
+            : CONFIG.MOBILE_RELEASE_SMOOTH_RATE;
+          const magnitudeBlend = 1 - Math.exp(-magnitudeRate * dt);
+          const nextMagnitude = currentMagnitude +
+            (targetMagnitude - currentMagnitude) * magnitudeBlend;
 
-        // Pointer samples can wobble when a thumb changes direction. Keep
-        // forward movement responsive, but soften only sharp analog turns.
-        if (usingAnalog && rawLength > 0.001) {
-          const currentLength = Math.hypot(player.inputX, player.inputY);
-          if (currentLength > 0.08) {
-            const turnDot =
-              (player.inputX / currentLength) * (ix / rawLength) +
-              (player.inputY / currentLength) * (iy / rawLength);
-            if (turnDot < 0.70) {
-              inputRate = CONFIG.MOBILE_TURN_SMOOTH_RATE || inputRate;
-            }
+          let directionX = player.inputX;
+          let directionY = player.inputY;
+          if (targetMagnitude > 0.001) {
+            const targetAngle = Math.atan2(iy, ix);
+            const currentAngle = currentMagnitude > 0.001
+              ? Math.atan2(player.inputY, player.inputX)
+              : targetAngle;
+            const angleDelta = Math.atan2(
+              Math.sin(targetAngle - currentAngle),
+              Math.cos(targetAngle - currentAngle)
+            );
+            const turnBlend = 1 - Math.exp(-CONFIG.MOBILE_TURN_SMOOTH_RATE * dt);
+            const nextAngle = currentAngle + angleDelta * turnBlend;
+            directionX = Math.cos(nextAngle);
+            directionY = Math.sin(nextAngle);
+          } else if (currentMagnitude > 0.001) {
+            directionX /= currentMagnitude;
+            directionY /= currentMagnitude;
+          } else {
+            directionX = 0;
+            directionY = 0;
           }
+
+          player.inputX = directionX * nextMagnitude;
+          player.inputY = directionY * nextMagnitude;
+        } else {
+          const inputRate = rawLength
+            ? CONFIG.PLAYER_INPUT_SMOOTH_RATE
+            : CONFIG.PLAYER_RELEASE_SMOOTH_RATE;
+          const inputBlend = 1 - Math.exp(-inputRate * dt);
+          player.inputX += (ix - player.inputX) * inputBlend;
+          player.inputY += (iy - player.inputY) * inputBlend;
         }
-
-        const inputBlend = 1 - Math.exp(-inputRate * dt);
-
-        player.inputX += (ix - player.inputX) * inputBlend;
-        player.inputY += (iy - player.inputY) * inputBlend;
 
         let smoothLength = Math.hypot(player.inputX, player.inputY);
         if (smoothLength > 1) {

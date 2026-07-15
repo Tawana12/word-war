@@ -8,8 +8,13 @@ let pendingDuty = null;
 
 function frame(now) {
   if (state.paused) {
+    const pausedFrameDt = Math.min(
+      CONFIG.MAX_FRAME_DT,
+      Math.max(0, (now - last) / 1000)
+    );
     last = now;
     accumulator = 0;
+    globalThis.updateMobileCameraFrame?.(pausedFrameDt);
     draw(1);
     requestAnimationFrame(frame);
     return;
@@ -25,6 +30,9 @@ function frame(now) {
     accumulator -= CONFIG.FIXED_DT;
   }
 
+  // DOM camera transforms run once per displayed frame rather than once per
+  // 120 Hz simulation step. This avoids repeated layout reads/writes on phones.
+  globalThis.updateMobileCameraFrame?.(frameDt);
   draw(accumulator / CONFIG.FIXED_DT);
   requestAnimationFrame(frame);
 }

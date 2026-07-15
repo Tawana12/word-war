@@ -351,9 +351,25 @@
         const dvx = desiredVX - actor.vx, dvy = desiredVY - actor.vy;
         const dmag = Math.hypot(dvx, dvy);
         if (dmag < 1e-4) { actor.vx = desiredVX; actor.vy = desiredVY; return; }
-        const speeding = (desiredVX * desiredVX + desiredVY * desiredVY) > (actor.vx * actor.vx + actor.vy * actor.vy);
-        const step = Math.min(1, ((speeding ? CONFIG.ACCEL : CONFIG.DECEL) * dt) / dmag);
-        actor.vx += dvx * step; actor.vy += dvy * step;
+
+        const speeding =
+          (desiredVX * desiredVX + desiredVY * desiredVY) >
+          (actor.vx * actor.vx + actor.vy * actor.vy);
+        const mobileAnalog = Boolean(
+          actor.isPlayer &&
+          globalThis.__wordWarsTouchUI === true &&
+          typeof mobileInput !== 'undefined' &&
+          mobileInput.active
+        );
+        const mobileMultiplier = mobileAnalog
+          ? (speeding
+              ? (CONFIG.MOBILE_ACCEL_MULTIPLIER || 1)
+              : (CONFIG.MOBILE_DECEL_MULTIPLIER || 1))
+          : 1;
+        const rate = (speeding ? CONFIG.ACCEL : CONFIG.DECEL) * mobileMultiplier;
+        const step = Math.min(1, (rate * dt) / dmag);
+        actor.vx += dvx * step;
+        actor.vy += dvy * step;
       }
       function stepAxis(actor, axis, delta) {
         if (delta === 0) return;

@@ -18,18 +18,20 @@
         PLAYER_INPUT_DEADZONE: 0.012,
         // Mobile keeps quick straight-line response, but sharp direction
         // changes use a gentler rate in the renderer to remove thumb jitter.
-        MOBILE_INPUT_SMOOTH_RATE: 28,
-        MOBILE_TURN_SMOOTH_RATE: 20.5,
-        MOBILE_RELEASE_SMOOTH_RATE: 24,
-        MOBILE_JOYSTICK_DEADZONE: 0.045,
-        MOBILE_JOYSTICK_FULL_SPEED_AT: 0.72,
-        MOBILE_JOYSTICK_RESPONSE_CURVE: 0.98,
-        MOBILE_SPEED_MULTIPLIER: 1.08,
+        MOBILE_INPUT_SMOOTH_RATE: 38,
+        MOBILE_TURN_SMOOTH_RATE: 34,
+        MOBILE_RELEASE_SMOOTH_RATE: 34,
+        MOBILE_JOYSTICK_DEADZONE: 0.035,
+        MOBILE_JOYSTICK_FULL_SPEED_AT: 0.68,
+        MOBILE_JOYSTICK_RESPONSE_CURVE: 0.88,
+        MOBILE_SPEED_MULTIPLIER: 1.10,
+        MOBILE_ACCEL_MULTIPLIER: 1.55,
+        MOBILE_DECEL_MULTIPLIER: 1.70,
         MOBILE_PICKUP_ASSIST: 27,
         MOBILE_TARGET_RELEASE_PAD: 24,
         MOBILE_TARGET_LOCK_TIME: 0.62,
         MOBILE_FACING_WEIGHT: 38,
-        MOBILE_CAMERA_FOLLOW_RATE: 15,
+        MOBILE_CAMERA_FOLLOW_RATE: 20,
         // 0.90 shows roughly 10% more of the arena on landscape phones.
         // Raise toward 1 to zoom in; lower toward 0.82 to zoom out further.
         MOBILE_CAMERA_ZOOM: 0.90,
