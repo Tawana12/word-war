@@ -5,55 +5,62 @@
   const panel = document.querySelector('#webLivePanel');
   const nicknameInput = document.querySelector('#webNicknameInput');
   const nicknameSave = document.querySelector('#webNicknameSave');
-  const leaderboardList = document.querySelector('#webLeaderboardList');
+  const nicknameHint = document.querySelector('#webNicknameHint');
 
   if (!adapter?.isWebMode?.()) return;
 
   panel?.classList.remove('hidden');
-  if (nicknameInput) nicknameInput.value = adapter.getNickname?.() || '';
+  if (nicknameInput) nicknameInput.value = displayName(adapter.getNickname?.());
 
-  function saveNickname() {
-    if (!nicknameInput) return;
-    const saved = adapter.setNickname?.(nicknameInput.value);
-    nicknameInput.value = saved || adapter.getNickname?.() || '';
+  function displayName(value) {
+    return String(value || '').replace(/_/g, ' ').trim();
+  }
+
+  function setValidation(message = '') {
+    const hasError = Boolean(message);
+    nicknameInput?.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+    panel?.classList.toggle('has-error', hasError);
+    if (nicknameHint) {
+      nicknameHint.textContent = message || 'Shown in the lobby and above your character.';
+    }
+  }
+
+  function saveNickname({ focusOnError = false } = {}) {
+    if (!nicknameInput) return Boolean(adapter.getNickname?.());
+    const raw = nicknameInput.value.trim();
+    if (!raw) {
+      setValidation('Enter a name before joining multiplayer.');
+      if (focusOnError) nicknameInput.focus();
+      return false;
+    }
+
+    const saved = adapter.setNickname?.(raw) || '';
+    if (!saved) {
+      setValidation('Use letters, numbers, spaces, _ or -.');
+      if (focusOnError) nicknameInput.focus();
+      return false;
+    }
+
+    nicknameInput.value = displayName(saved);
+    setValidation('');
     nicknameInput.blur();
+    return true;
   }
 
-  nicknameSave?.addEventListener('click', saveNickname);
+  globalThis.ensureWebMultiplayerNickname = () => saveNickname({ focusOnError: true });
+
+  nicknameSave?.addEventListener('click', () => saveNickname({ focusOnError: true }));
+  nicknameInput?.addEventListener('input', () => setValidation(''));
   nicknameInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') saveNickname();
+    if (event.key === 'Enter') saveNickname({ focusOnError: true });
   });
-  nicknameInput?.addEventListener('change', saveNickname);
-
-  function renderLeaderboard(entries) {
-    if (!leaderboardList) return;
-    leaderboardList.replaceChildren();
-    const safeEntries = Array.isArray(entries) ? entries.slice(0, 5) : [];
-    if (!safeEntries.length) {
-      const empty = document.createElement('li');
-      empty.textContent = 'No scores yet';
-      leaderboardList.appendChild(empty);
-      return;
-    }
-
-    for (const entry of safeEntries) {
-      const row = document.createElement('li');
-      const name = document.createElement('span');
-      const score = document.createElement('strong');
-      name.textContent = `${entry.rank || ''}. ${entry.username || 'Guest'}`;
-      score.textContent = String(Math.max(0, Number(entry.karma) || 0));
-      row.append(name, score);
-      leaderboardList.appendChild(row);
-    }
-  }
-
-  adapter.onEvent?.((event) => {
-    if (event?.type === 'leaderboard') renderLeaderboard(event.entries);
+  nicknameInput?.addEventListener('change', () => {
+    if (nicknameInput.value.trim()) saveNickname();
   });
 
   adapter.onRoom?.((room, identity) => {
     if (nicknameInput && document.activeElement !== nicknameInput && identity?.username) {
-      nicknameInput.value = identity.username;
+      nicknameInput.value = displayName(identity.username);
     }
     panel?.classList.toggle('is-connected', Boolean(room));
   });

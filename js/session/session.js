@@ -270,8 +270,16 @@ function initializeSessionMenu() {
   });
 
   multiplayerButton?.addEventListener('click', () => {
-    selectedSessionMode = SESSION_MODES.MULTIPLAYER;
     showModeStatus('');
+
+    if (multiplayerAdapter.isWebMode?.() &&
+        typeof globalThis.ensureWebMultiplayerNickname === 'function' &&
+        !globalThis.ensureWebMultiplayerNickname()) {
+      showModeStatus('Enter your player name first.', true);
+      return;
+    }
+
+    selectedSessionMode = SESSION_MODES.MULTIPLAYER;
 
     if (!multiplayerAdapter.isAvailable()) {
       showModeStatus('Open this game through its Reddit post to join multiplayer.', true);

@@ -90,7 +90,7 @@ class MultiplayerAdapter {
 
   setNickname(value) {
     const clean = this.cleanNickname(value);
-    if (!clean) return this.nickname;
+    if (!clean) return '';
     this.nickname = clean;
     try {
       localStorage.setItem('wordWarsNickname', clean);
@@ -106,6 +106,9 @@ class MultiplayerAdapter {
   async connect() {
     if (!this.available) {
       throw new Error('Multiplayer is unavailable in this browser.');
+    }
+    if (this.webMode && !this.nickname) {
+      throw new Error('Enter your player name before joining multiplayer.');
     }
     if (this.connected && this.room) {
       return {
@@ -324,21 +327,20 @@ class MultiplayerAdapter {
       .slice(0, 16);
   }
 
-  randomNickname() {
-    const first = ['Swift', 'Quiet', 'Bold', 'Lucky', 'Rapid', 'Clever', 'Bright', 'Wild', 'Calm', 'Sharp'];
-    const second = ['Falcon', 'Otter', 'Lion', 'Panda', 'Fox', 'Raven', 'Cobra', 'Wolf', 'Gecko', 'Moth'];
-    return `${first[Math.floor(Math.random() * first.length)]}${second[Math.floor(Math.random() * second.length)]}${Math.floor(10 + Math.random() * 90)}`;
+  isLegacyGeneratedNickname(value) {
+    const first = '(?:Swift|Quiet|Bold|Lucky|Rapid|Clever|Bright|Wild|Calm|Sharp)';
+    const second = '(?:Falcon|Otter|Lion|Panda|Fox|Raven|Cobra|Wolf|Gecko|Moth)';
+    return new RegExp(`^${first}${second}\\d{2}$`).test(String(value || ''));
   }
 
   readOrCreateNickname() {
     try {
       const saved = this.cleanNickname(localStorage.getItem('wordWarsNickname'));
-      if (saved) return saved;
-      const generated = this.randomNickname();
-      localStorage.setItem('wordWarsNickname', generated);
-      return generated;
+      if (saved && !this.isLegacyGeneratedNickname(saved)) return saved;
+      if (saved) localStorage.removeItem('wordWarsNickname');
+      return '';
     } catch {
-      return this.randomNickname();
+      return '';
     }
   }
 

@@ -112,6 +112,16 @@
     return room.players.filter(entry => entry.connected !== false).length;
   }
 
+  function multiplayerSlotCount() {
+    const configured = globalThis.MULTIPLAYER_SLOT_LAYOUT?.length;
+    return Number.isFinite(configured) && configured > 0 ? configured : 10;
+  }
+
+  function displayUsername(value, fallback = 'Player') {
+    const clean = String(value || '').replace(/_/g, ' ').trim();
+    return clean || fallback;
+  }
+
   function refreshMultiplayerPresenceHud() {
     if (!multiplayerPresenceEl) return;
     if (!runtime.active || !runtime.started || !runtime.room) {
@@ -120,9 +130,8 @@
     }
 
     const humans = connectedHumanCount(runtime.room);
-    const bots = Math.max(0, 10 - humans);
-    multiplayerPresenceEl.textContent =
-      `${humans} PLAYER${humans === 1 ? '' : 'S'} · ${bots} BOT${bots === 1 ? '' : 'S'}`;
+    const bots = Math.max(0, multiplayerSlotCount() - humans);
+    multiplayerPresenceEl.textContent = `${humans}P · ${bots}B`;
     multiplayerPresenceEl.classList.remove('hidden');
   }
 
@@ -140,13 +149,13 @@
     }
     if (teamEl) {
       teamEl.textContent = assignment
-        ? `${teamLabel(assignment.team)} · u/${runtime.identity?.username || assignment.username}`
+        ? `${teamLabel(assignment.team)} · ${displayUsername(runtime.identity?.username || assignment.username)}`
         : 'Waiting for role';
       teamEl.className = assignment?.team === 'red' ? 'team-red' : 'team-blue';
     }
 
     const humans = connectedHumanCount(room);
-    const bots = Math.max(0, 10 - humans);
+    const bots = Math.max(0, multiplayerSlotCount() - humans);
     if (playerCountEl) {
       playerCountEl.textContent =
         `${humans} player${humans === 1 ? '' : 's'} · ${bots} bot${bots === 1 ? '' : 's'}`;
@@ -163,7 +172,7 @@
         row.className = `lobby-player-row ${entry.team}${local ? ' local' : ''}`;
 
         const identity = document.createElement('strong');
-        identity.textContent = `${local ? 'YOU · ' : ''}u/${entry.username}`;
+        identity.textContent = `${local ? 'YOU · ' : ''}${displayUsername(entry.username)}`;
 
         const detail = document.createElement('span');
         const takeover = room.status === 'playing' && entry.connected === false
@@ -229,7 +238,7 @@
     runtime.lastForcedSnapshotAt = 0;
     runtime.statsBySlot = Object.create(null);
     lobbyScreen?.classList.remove('hidden');
-    lobbyMessage('Connecting to the Reddit lobby…');
+    lobbyMessage('Connecting to the live lobby…');
     if (countdownEl) countdownEl.textContent = '15';
     startLobbyClock();
 
@@ -1884,7 +1893,7 @@
   const multiplayerLabelWidthCache = new Map();
 
   function compactUsername(value, limit = 18) {
-    const name = String(value || 'Redditor');
+    const name = displayUsername(value);
     return name.length > limit ? `${name.slice(0, limit - 1)}…` : name;
   }
 
@@ -1901,8 +1910,8 @@
       const connected = actor.multiplayerConnected !== false;
       const username = compactUsername(actor.multiplayerUsername);
       const label = local
-        ? `YOU · u/${username}`
-        : `u/${username}${connected ? '' : ' · BOT'}`;
+        ? `YOU · ${username}`
+        : `${username}${connected ? '' : ' · BOT'}`;
 
       ctx.save();
       
@@ -2016,6 +2025,6 @@
 
     msg(runtime.isHost
       ? 'You are hosting. Empty and disconnected roles are controlled by bots.'
-      : `Connected to u/${room.players.find(entry => entry.userId === room.hostUserId)?.username || 'host'}.`);
+      : `Connected to ${displayUsername(room.players.find(entry => entry.userId === room.hostUserId)?.username, 'host')}.`);
   };
 })();

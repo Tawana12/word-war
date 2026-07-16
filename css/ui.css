@@ -2245,56 +2245,74 @@ html.solo-running .multiplayer-presence {
   }
 }
 
-/* Lightweight guest multiplayer panel for the standalone Vercel build. */
+/* Standalone multiplayer identity. Kept inside the landing screen so it never
+   covers the arena, mobile controls, or live match HUD. */
 .web-live-panel {
-  position: absolute;
-  right: 12px;
-  top: 54px;
-  z-index: 31;
-  width: min(220px, calc(100% - 24px));
-  border: 1px solid rgba(255,255,255,.18);
-  background: rgba(14,17,20,.9);
-  box-shadow: 0 8px 24px rgba(0,0,0,.24);
+  position: static;
+  z-index: auto;
+  width: min(320px, 88vw);
+  margin-top: 12px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 7px;
+  background: rgba(14,17,20,.72);
+  box-shadow: none;
   font-family: Arial, sans-serif;
   color: #f6f7f8;
   pointer-events: auto;
 }
 
 .web-live-panel.hidden { display: none; }
-.web-live-panel.is-connected { border-color: rgba(114,207,147,.5); }
+.web-live-panel.is-connected { border-color: rgba(114,207,147,.46); }
+.web-live-panel.has-error { border-color: rgba(255,112,112,.76); }
 
-.web-guest-row,
-.web-karma-board { padding: 9px 10px; }
-.web-karma-board { border-top: 1px solid rgba(255,255,255,.12); }
-.web-guest-row > label,
-.web-karma-board > strong {
+.web-guest-row { padding: 9px 10px 10px; }
+.web-guest-row > label {
   display: block;
   margin-bottom: 6px;
   font-size: 9px;
+  font-weight: 850;
   letter-spacing: .12em;
-  color: #bfc5ca;
+  color: #c7cdd2;
 }
 
-.web-nickname-controls { display: flex; gap: 5px; }
+.web-nickname-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
 .web-nickname-controls input {
   min-width: 0;
-  flex: 1;
-  height: 28px;
+  height: 32px;
   border: 1px solid rgba(255,255,255,.22);
+  border-radius: 4px;
   background: #0e1114;
   color: #fff;
-  padding: 0 7px;
-  font: 700 11px Arial, sans-serif;
+  padding: 0 9px;
+  font: 700 12px Arial, sans-serif;
+  outline: none;
 }
+
+.web-nickname-controls input:focus {
+  border-color: rgba(255,255,255,.58);
+}
+
+.web-nickname-controls input[aria-invalid="true"] {
+  border-color: rgba(255,112,112,.9);
+}
+
 .web-nickname-controls button {
-  height: 28px;
+  height: 32px;
+  min-width: 50px;
   border: 1px solid rgba(255,255,255,.25);
+  border-radius: 4px;
   background: #272d32;
   color: #fff;
-  padding: 0 8px;
+  padding: 0 10px;
   font: 800 9px Arial, sans-serif;
   cursor: pointer;
 }
+
 .web-guest-row small {
   display: block;
   margin-top: 6px;
@@ -2302,28 +2320,31 @@ html.solo-running .multiplayer-presence {
   font-size: 8px;
   line-height: 1.3;
 }
-.web-karma-board ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+
+.web-live-panel.has-error .web-guest-row small { color: #ff9c9c; }
+
+/* Keep connection information tiny during play. The complete roster already
+   lives in the lobby, and round score remains in #roundStatus. */
+.multiplayer-presence {
+  padding: 2px 6px;
+  opacity: .72;
+  font-size: 6px;
+  letter-spacing: .4px;
 }
-.web-karma-board li {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 3px 0;
-  font-size: 10px;
-  color: #d8dde1;
-}
-.web-karma-board li strong { color: #f1ca5c; }
 
 @media (max-width: 760px), (max-height: 520px) {
   .web-live-panel {
-    top: 46px;
-    right: 7px;
-    width: 170px;
+    width: min(290px, 84vw);
+    margin-top: 8px;
   }
-  .web-guest-row { display: none; }
-  .web-karma-board { padding: 6px 8px; border-top: 0; }
-  .web-karma-board li { font-size: 8px; padding: 2px 0; }
+
+  .web-guest-row { padding: 7px 8px 8px; }
+  .web-guest-row > label { margin-bottom: 4px; font-size: 8px; }
+  .web-nickname-controls input,
+  .web-nickname-controls button { height: 29px; }
+
+  html.touch-ui .multiplayer-presence {
+    display: none !important;
+  }
 }
+

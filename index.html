@@ -23,6 +23,16 @@
           <button id="multiplayerModeBtn" class="mode-secondary mode-multiplayer" type="button">MULTIPLAYER</button>
         </div>
         <p class="match-meta">Multiplayer starts after 15 seconds. Empty roles become bots.</p>
+        <div id="webLivePanel" class="web-live-panel hidden" aria-label="Multiplayer player name">
+          <div class="web-guest-row">
+            <label for="webNicknameInput">PLAYER NAME</label>
+            <div class="web-nickname-controls">
+              <input id="webNicknameInput" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Enter your name" aria-label="Player name" />
+              <button id="webNicknameSave" type="button">SET</button>
+            </div>
+            <small id="webNicknameHint">Shown in the lobby and above your character.</small>
+          </div>
+        </div>
         <div id="modeStatus" aria-live="polite"></div>
       </div>
 
@@ -36,9 +46,9 @@
           </div>
           <div class="lobby-assignment">
             <strong id="multiplayerAssignment">Assigning role…</strong>
-            <small id="multiplayerTeam">Waiting for Devvit</small>
+            <small id="multiplayerTeam">Waiting for assignment</small>
           </div>
-          <p id="multiplayerPlayerCount" class="lobby-player-count">1 player · 9 bots</p>
+          <p id="multiplayerPlayerCount" class="lobby-player-count">Waiting for roster…</p>
           <div id="multiplayerSlotList" class="lobby-player-list" aria-label="Players in lobby"></div>
           <p id="multiplayerLobbyStatus" class="lobby-status">Connecting…</p>
         </div>
@@ -48,7 +58,7 @@
         <div class="timer" id="timer">1:30</div>
         <div class="round-status" id="roundStatus">Round 1 · 0–0</div>
         <div class="current-role" id="currentRoleChip">YOU: RUNNER</div>
-        <div id="multiplayerPresence" class="multiplayer-presence hidden" aria-live="polite">1 PLAYER · 9 BOTS</div>
+        <div id="multiplayerPresence" class="multiplayer-presence hidden" aria-live="polite"></div>
         <section id="soloHud" class="solo-hud hidden" aria-label="Word Hunt status">
           <div class="solo-stat solo-health-stat">
             <span>HP</span><strong id="soloHealthText">100</strong>
@@ -159,20 +169,6 @@
       </div>
 
 
-      <aside id="webLivePanel" class="web-live-panel hidden" aria-label="Live multiplayer information">
-        <div class="web-guest-row">
-          <label for="webNicknameInput">PLAYING AS</label>
-          <div class="web-nickname-controls">
-            <input id="webNicknameInput" type="text" maxlength="16" autocomplete="off" spellcheck="false" aria-label="Guest nickname" />
-            <button id="webNicknameSave" type="button">SAVE</button>
-          </div>
-          <small>No account needed · scores reset when the live server restarts</small>
-        </div>
-        <div class="web-karma-board">
-          <strong>LIVE KARMA</strong>
-          <ol id="webLeaderboardList"><li>Waiting for players…</li></ol>
-        </div>
-      </aside>
 
       <div id="mobileControls" class="mobile-controls" aria-hidden="true">
         <div id="joystick" class="joystick" aria-label="Movement joystick">
