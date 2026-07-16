@@ -5,6 +5,6 @@
 // For local testing use: localhost:1999
 
 globalThis.WORD_WARS_WEB_CONFIG = Object.freeze({
-  partykitHost: 'REPLACE_WITH_YOUR_PARTYKIT_HOST',
+  partykitHost: 'realtime.gameinclass.com',
   partykitRoom: 'word-wars-global',
 });
