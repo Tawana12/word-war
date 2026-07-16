@@ -17,6 +17,9 @@ function getWordWarsNetDebug() {
       reconciliationError: 0,
       latencyMs: 80,
       jitterMs: 0,
+      actionLatencyMs: 0,
+      actionsSent: 0,
+      actionsReceived: 0,
       lastPacketSize: 0,
       _packetSamples: 0,
     };
@@ -59,6 +62,7 @@ class MultiplayerAdapter {
     this.latencyMs = 80;
     this.jitterMs = 0;
     this.pendingLatest = { input: null, motion: null, world: null };
+    this.pendingCriticalActions = [];
     this.flushQueued = false;
     this.flushTimer = null;
 
@@ -161,7 +165,26 @@ class MultiplayerAdapter {
       this.post('multiplayer-relay', { kind: 'event', payload: action });
       return;
     }
-    this.sendRaw({ type: 'relay', kind: 'event', payload: action });
+
+    // Interaction edges must not wait behind a movement snapshot. Send them
+    // immediately while the socket is healthy; otherwise preserve them in a
+    // small reliable queue and flush before input or snapshots.
+    if (
+      this.socket?.readyState === WebSocket.OPEN &&
+      this.socket.bufferedAmount < 8 * 1024 &&
+      this.pendingCriticalActions.length === 0
+    ) {
+      this.sendRaw({ type: 'relay', kind: 'event', payload: action });
+      return;
+    }
+
+    this.pendingCriticalActions.push(action);
+    if (this.pendingCriticalActions.length > 32) {
+      // Button presses are rare. This cap only protects against a broken UI
+      // repeatedly firing events while disconnected.
+      this.pendingCriticalActions.splice(0, this.pendingCriticalActions.length - 32);
+    }
+    this.scheduleLatestFlush();
   }
 
   sendEvent(event) {
@@ -270,6 +293,7 @@ class MultiplayerAdapter {
     this.pendingLatest.input = null;
     this.pendingLatest.motion = null;
     this.pendingLatest.world = null;
+    this.pendingCriticalActions.length = 0;
     clearTimeout(this.flushTimer);
     this.flushTimer = null;
     for (const listener of this.connectionListeners) listener(false);
@@ -444,6 +468,7 @@ class MultiplayerAdapter {
       debug.averagePacketSize += (size - debug.averagePacketSize) / Math.min(120, debug._packetSamples);
       debug.bufferedAmount = this.socket.bufferedAmount;
       if (message?.kind === 'input') debug.inputsSent += 1;
+      if (message?.kind === 'event') debug.actionsSent += 1;
       if (message?.kind === 'snapshot') {
         if (message.payload?.type === 'world-snapshot' || message.payload?.fullWorld) {
           debug.worldSnapshotsSent += 1;
@@ -486,8 +511,29 @@ class MultiplayerAdapter {
       return;
     }
 
-    // Inputs are highest priority so direction changes are not blocked behind
-    // a larger state packet.
+    // Discrete interactions are highest priority and are never replaced by a
+    // newer event. Flush a small bounded batch before movement traffic.
+    let criticalSent = 0;
+    while (
+      this.pendingCriticalActions.length > 0 &&
+      this.socket.bufferedAmount < 14 * 1024 &&
+      criticalSent < 4
+    ) {
+      const action = this.pendingCriticalActions.shift();
+      if (!this.sendRaw({ type: 'relay', kind: 'event', payload: action })) {
+        this.pendingCriticalActions.unshift(action);
+        break;
+      }
+      criticalSent += 1;
+    }
+
+    if (this.pendingCriticalActions.length > 0 && this.socket.bufferedAmount > 16 * 1024) {
+      this.scheduleLatestFlush(8);
+      return;
+    }
+
+    // Inputs are next so direction changes are not blocked behind a larger
+    // state packet.
     const input = this.pendingLatest.input;
     this.pendingLatest.input = null;
     if (input) this.sendRaw({ type: 'relay', kind: 'input', payload: input });
@@ -508,7 +554,12 @@ class MultiplayerAdapter {
       if (world) this.sendRaw({ type: 'relay', kind: 'snapshot', payload: world });
     }
 
-    if (this.pendingLatest.input || this.pendingLatest.motion || this.pendingLatest.world) {
+    if (
+      this.pendingCriticalActions.length > 0 ||
+      this.pendingLatest.input ||
+      this.pendingLatest.motion ||
+      this.pendingLatest.world
+    ) {
       this.scheduleLatestFlush(8);
     }
   }
@@ -596,6 +647,7 @@ class MultiplayerAdapter {
       return;
     }
     if (data.kind === 'event') {
+      getWordWarsNetDebug().actionsReceived += 1;
       this.dispatchEvent(data.payload, data);
     }
   }
@@ -659,6 +711,7 @@ class MultiplayerAdapter {
       return;
     }
     if (envelope.kind === 'event') {
+      getWordWarsNetDebug().actionsReceived += 1;
       this.dispatchEvent(envelope.payload, envelope);
     }
   }
