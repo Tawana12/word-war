@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content" />
   <title>Word Wars</title>
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/ui.css" />
+  <link rel="stylesheet" href="css/responsive-shell.css" />
 </head>
 <body>
   <main id="wrap">
@@ -157,6 +158,22 @@
         <p class="pause-help">Press Esc or P to resume.</p>
       </div>
 
+
+      <aside id="webLivePanel" class="web-live-panel hidden" aria-label="Live multiplayer information">
+        <div class="web-guest-row">
+          <label for="webNicknameInput">PLAYING AS</label>
+          <div class="web-nickname-controls">
+            <input id="webNicknameInput" type="text" maxlength="16" autocomplete="off" spellcheck="false" aria-label="Guest nickname" />
+            <button id="webNicknameSave" type="button">SAVE</button>
+          </div>
+          <small>No account needed · scores reset when the live server restarts</small>
+        </div>
+        <div class="web-karma-board">
+          <strong>LIVE KARMA</strong>
+          <ol id="webLeaderboardList"><li>Waiting for players…</li></ol>
+        </div>
+      </aside>
+
       <div id="mobileControls" class="mobile-controls" aria-hidden="true">
         <div id="joystick" class="joystick" aria-label="Movement joystick">
           <div class="joystick-ring"></div>
@@ -192,7 +209,9 @@
   </main>
 
   <script src="js/core/core.js"></script>
+  <script src="js/net/web-config.js"></script>
   <script src="js/net/multiplayer-adapter.js"></script>
+  <script src="js/net/web-multiplayer-ui.js"></script>
   <script src="js/session/session.js"></script>
   <script src="js/world/world.js"></script>
   <script src="js/gameplay/actions.js"></script>
@@ -215,6 +234,7 @@
   <script src="js/features/solo-fortress.js"></script>
   <script src="js/audio/sound-manager.js"></script>
   <script src="js/ui/pause-menu.js"></script>
+  <script src="js/ui/layout-state.js"></script>
   <script src="js/net/multiplayer-runtime.js"></script>
   <script src="js/main.js"></script>
   <script src="js/net/karma-bridge.js"></script>

@@ -493,12 +493,18 @@ function updateMobileCamera(dt = 1 / 60, immediate = false) {
     `translate3d(${mobileCameraLeft.toFixed(2)}px, ${mobileCameraTop.toFixed(2)}px, 0)`;
 }
 
-const mobileControlsTickBase = tick;
-tick = function mobileControlsTick(dt) {
-  mobileControlsTickBase(dt);
-
+// Keep mobile controls independent from the authoritative simulation tick.
+// Multiplayer replica clients intentionally skip the host game simulation, so
+// tying control visibility and labels only to `tick()` made controls disappear
+// on whichever phone was not the host.
+function updateMobileControlsState(dt = 1 / 60) {
   const active = mobileGameIsActive();
   mobileControlsEl?.classList.toggle('game-active', active);
+
+  if (!active) {
+    globalThis.setInnerSentryFireHeld?.(false);
+    mobileActionBtn?.classList.remove('pressed');
+  }
 
   // Consume a slightly early action as soon as a valid target comes into
   // range. This is especially useful while steering with the left thumb.
@@ -516,7 +522,7 @@ tick = function mobileControlsTick(dt) {
     mobileActionBufferedUntil = 0;
   }
 
-  mobileLabelTimer -= dt;
+  mobileLabelTimer -= Math.max(0, dt || 0);
   if (mobileLabelTimer <= 0) {
     const context = typeof getContextTarget === 'function'
       ? getContextTarget()
@@ -538,6 +544,12 @@ tick = function mobileControlsTick(dt) {
 
     mobileLabelTimer = 0.08;
   }
+}
+
+const mobileControlsTickBase = tick;
+tick = function mobileControlsTick(dt) {
+  mobileControlsTickBase(dt);
+  updateMobileControlsState(dt);
 };
 
 function activeFullscreenElement() {
@@ -620,6 +632,7 @@ document.addEventListener('visibilitychange', () => {
 globalThis.resetMobileUiState = resetMobileUiState;
 globalThis.refreshMobileLayout = refreshMobileLayout;
 globalThis.updateMobileCameraFrame = updateMobileCamera;
+globalThis.updateMobileControlsState = updateMobileControlsState;
 
 if (mobileControlsEl) {
   mobileControlsEl.setAttribute('aria-hidden', touchUI ? 'false' : 'true');

@@ -1,0 +1,14 @@
+{
+  "name": "word-wars-realtime",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "partykit dev",
+    "deploy": "partykit deploy",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "partykit": "latest",
+    "typescript": "latest"
+  }
+}

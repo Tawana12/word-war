@@ -51,11 +51,22 @@
     lastRoomVersion: -1,
     remoteInputs: new Map(),
     actionSequence: 0,
+    inputSequence: 0,
     lastSentInput: null,
     lastInputSentAt: 0,
     nextSnapshotAt: 0,
+    nextWorldSnapshotAt: 0,
+    nextWorldCheckAt: 0,
+    lastWorldSignature: '',
     snapshotSequence: 0,
     lastSnapshotSequence: -1,
+    pendingSnapshot: null,
+    lastSnapshotReceivedAt: 0,
+    smoothedSnapshotGapMs: 100,
+    hasAuthoritativeSnapshot: false,
+    hasFullWorldSnapshot: false,
+    lastFullStateRequestAt: 0,
+    lastForcedSnapshotAt: 0,
     roundAdvanceTimer: null,
     lobbyTimer: null,
     statsBySlot: Object.create(null),
@@ -185,6 +196,15 @@
     runtime.identity = null;
     runtime.assignment = null;
     runtime.remoteInputs.clear();
+    runtime.actionSequence = 0;
+    runtime.inputSequence = 0;
+    runtime.pendingSnapshot = null;
+    runtime.lastSnapshotReceivedAt = 0;
+    runtime.smoothedSnapshotGapMs = 100;
+    runtime.hasAuthoritativeSnapshot = false;
+    runtime.hasFullWorldSnapshot = false;
+    runtime.lastFullStateRequestAt = 0;
+    runtime.lastForcedSnapshotAt = 0;
     runtime.statsBySlot = Object.create(null);
     lobbyScreen?.classList.remove('hidden');
     lobbyMessage('Connecting to the Reddit lobby…');
@@ -239,6 +259,7 @@
       if (!wasHost && runtime.isHost) {
         msg('Host changed. You are keeping the match running.');
         runtime.nextSnapshotAt = simTime;
+        runtime.nextWorldSnapshotAt = simTime;
         if (state.over && !state.demoMatch?.finished) scheduleNextRound();
       }
     }
@@ -254,6 +275,14 @@
     if (!runtime.started) lobbyMessage(error.message, true);
     else msg(error.message);
   });
+
+  function transportProfile() {
+    return runtime.room?.transport || {
+      inputIntervalMs: 70,
+      snapshotIntervalMs: 100,
+      worldIntervalMs: 700,
+    };
+  }
 
   function currentRawInput() {
     let x = 0;
@@ -285,6 +314,10 @@
       facingY: player?.facingY || 0,
       actionHeld: Boolean(spaceHeld || globalThis.isInnerSentryFireHeld?.()),
       actionSequence: runtime.actionSequence,
+      inputSequence: ++runtime.inputSequence,
+      vx: Number.isFinite(player?.vx) ? player.vx : 0,
+      vy: Number.isFinite(player?.vy) ? player.vy : 0,
+      requestFullState: !runtime.isHost && !runtime.hasFullWorldSnapshot,
       sentAt: Date.now(),
     };
   }
@@ -297,25 +330,36 @@
       Math.abs(next.facingX - previous.facingX) > 0.08 ||
       Math.abs(next.facingY - previous.facingY) > 0.08 ||
       next.actionHeld !== previous.actionHeld ||
-      next.actionSequence !== previous.actionSequence
+      next.actionSequence !== previous.actionSequence ||
+      next.requestFullState !== previous.requestFullState
     );
   }
 
   function sendLocalInput(now = performance.now()) {
-    if (!runtime.active || !runtime.started || runtime.isHost || !player) return;
+    if (!runtime.active || !runtime.started || !player) return;
     const next = inputPayload();
     const previous = runtime.lastSentInput;
     const actionEdge = !previous ||
       next.actionSequence !== previous.actionSequence ||
       next.actionHeld !== previous.actionHeld;
     const elapsed = now - runtime.lastInputSentAt;
-    const keepAliveDue = elapsed > 240;
+    const inputIntervalMs = transportProfile().inputIntervalMs;
+    const bootstrapRequestDue = !runtime.hasFullWorldSnapshot &&
+      elapsed > Math.max(260, inputIntervalMs * 1.8);
+    const keepAliveDue = elapsed > Math.max(650, inputIntervalMs * 5.5);
+    const movementChanged = inputChanged(next, previous);
+    const previousMagnitude = previous ? Math.hypot(previous.x || 0, previous.y || 0) : 0;
+    const nextMagnitude = Math.hypot(next.x, next.y);
+    const movementEdge = !previous ||
+      (previousMagnitude <= 0.05) !== (nextMagnitude <= 0.05) ||
+      Math.abs(next.x - previous.x) > 0.18 ||
+      Math.abs(next.y - previous.y) > 0.18;
+    const edgeCanSend = movementEdge && elapsed >= 32;
 
-    // Inputs travel through a short authenticated endpoint before Realtime.
-    // Limit movement packets to about 14 Hz, while actions still transmit
-    // immediately so shooting and pickups remain responsive.
-    if (!actionEdge && elapsed < 70) return;
-    if (!actionEdge && !keepAliveDue && !inputChanged(next, previous)) return;
+    if (!actionEdge && !bootstrapRequestDue && !edgeCanSend) {
+      if (elapsed < inputIntervalMs) return;
+      if (!keepAliveDue && !movementChanged) return;
+    }
 
     runtime.lastSentInput = next;
     runtime.lastInputSentAt = now;
@@ -329,16 +373,31 @@
   requestAnimationFrame(inputAnimationFrame);
 
   multiplayerAdapter.onInput((payload, envelope) => {
-    if (!runtime.isHost || !runtime.started || !payload || payload.type !== 'player-input') return;
+    if (!runtime.started || !payload || payload.type !== 'player-input') return;
     const sender = envelope.senderUserId;
     if (!sender || sender === runtime.identity?.userId) return;
     const roomPlayer = runtime.room?.players?.find(entry => entry.userId === sender);
     if (!roomPlayer || roomPlayer.slotId !== payload.slotId) return;
+    const previousInput = runtime.remoteInputs.get(roomPlayer.slotId);
+    const incomingSequence = Number(payload.inputSequence) || 0;
+    const previousInputSequence = Number(previousInput?.inputSequence) || 0;
+    if (incomingSequence && incomingSequence <= previousInputSequence) return;
+
     runtime.remoteInputs.set(roomPlayer.slotId, {
       ...payload,
       receivedAt: performance.now(),
       userId: sender,
     });
+
+    if (runtime.isHost && payload.requestFullState) {
+      const now = performance.now();
+      if (now - runtime.lastForcedSnapshotAt >= 350) {
+        runtime.lastForcedSnapshotAt = now;
+        runtime.nextSnapshotAt = simTime;
+        runtime.nextWorldSnapshotAt = simTime;
+        multiplayerAdapter.sendSnapshot(buildSnapshot(true));
+      }
+    }
   });
 
   function actorForSlot(slotId) {
@@ -455,10 +514,11 @@
     return data;
   }
 
-  function buildSnapshot() {
-    return {
+  function buildSnapshot(includeWorld = false) {
+    const snapshot = {
       type: 'game-snapshot',
       sequence: ++runtime.snapshotSequence,
+      fullWorld: includeWorld,
       roundIndex: state.demoMatch?.roundIndex || 0,
       simTime,
       blueWord: CONFIG.BLUE_WORD,
@@ -480,8 +540,6 @@
         finished: state.demoMatch.finished,
       } : null,
       actors: (ACTORS || []).map(serializeActor),
-      items: items.map(serializeItem),
-      walls: walls.map(wall => primitiveCopy(wall)),
       bullets: typeof bullets !== 'undefined' ? bullets.map(serializeBullet) : [],
       explosions: explosions.map(effect => primitiveCopy(effect)),
       slotEffects: slotEffects.map(effect => primitiveCopy(effect)),
@@ -492,10 +550,17 @@
         mazePhase: typeof mazePhase !== 'undefined' ? mazePhase : 'ACTIVE',
         mazeTimer: typeof mazeTimer !== 'undefined' ? mazeTimer : 0,
       },
-      statsBySlot: runtime.statsBySlot,
       hostUserId: runtime.room?.hostUserId || null,
       sentAt: Date.now(),
     };
+
+    if (includeWorld) {
+      snapshot.items = items.map(serializeItem);
+      snapshot.walls = walls.map(wall => primitiveCopy(wall));
+      snapshot.statsBySlot = runtime.statsBySlot;
+    }
+
+    return snapshot;
   }
 
   function restoreItem(data, actorsBySlot) {
@@ -513,6 +578,16 @@
 
   function applySnapshot(snapshot) {
     if (!runtime.active || runtime.isHost || !snapshot || snapshot.type !== 'game-snapshot') return;
+
+    if (!runtime.started) {
+      if (!runtime.pendingSnapshot ||
+        (snapshot.sequence ?? 0) > (runtime.pendingSnapshot.sequence ?? 0)) {
+        runtime.pendingSnapshot = snapshot;
+      }
+      return;
+    }
+
+    if (!Array.isArray(snapshot.actors) || snapshot.actors.length === 0) return;
     if ((snapshot.sequence ?? 0) <= runtime.lastSnapshotSequence) return;
     runtime.lastSnapshotSequence = snapshot.sequence ?? runtime.lastSnapshotSequence + 1;
 
@@ -524,7 +599,11 @@
       if (rsEl) rsEl.textContent = shuffle(CONFIG.RED_WORD);
     }
 
-    simTime = Number(snapshot.simTime) || simTime;
+    const incomingSimTime = Number(snapshot.simTime);
+    if (Number.isFinite(incomingSimTime)) {
+      const drift = incomingSimTime - simTime;
+      simTime = Math.abs(drift) > 1 ? incomingSimTime : simTime + drift * 0.22;
+    }
     state.blue = [...(snapshot.state?.blue || [])];
     state.red = [...(snapshot.state?.red || [])];
     state.seconds = snapshot.state?.seconds ?? state.seconds;
@@ -540,39 +619,133 @@
       state.demoMatch.finished = snapshot.demoMatch.finished;
     }
 
+    const receivedAt = Number.isFinite(snapshot.__receivedAt)
+      ? snapshot.__receivedAt
+      : performance.now();
+    if (runtime.lastSnapshotReceivedAt > 0) {
+      const observedGap = Math.max(16, Math.min(1000, receivedAt - runtime.lastSnapshotReceivedAt));
+      runtime.smoothedSnapshotGapMs +=
+        (observedGap - runtime.smoothedSnapshotGapMs) * 0.18;
+    }
+    runtime.lastSnapshotReceivedAt = receivedAt;
+
+    const configuredGapSeconds = transportProfile().snapshotIntervalMs / 1000;
+    const observedGapSeconds = runtime.smoothedSnapshotGapMs / 1000;
+    const predictionLeadSeconds = Math.max(
+      0.045,
+      Math.min(0.18, Math.max(configuredGapSeconds, observedGapSeconds) * 0.55)
+    );
     const existingBySlot = new Map((ACTORS || []).map(actor => [actor.multiplayerSlotId, actor]));
     const nextActors = [];
+
     for (const data of snapshot.actors || []) {
       let actor = existingBySlot.get(data.multiplayerSlotId);
+      const isNew = !actor;
       if (!actor) {
         actor = createActor(data.x, data.y, data.team, data.role, data.maxSpeed, false);
       }
-      const oldX = actor.x;
-      const oldY = actor.y;
-      const isLocalActor = data.multiplayerSlotId === runtime.assignment?.slotId;
-      const correctionDistance = Math.hypot((data.x || 0) - oldX, (data.y || 0) - oldY);
-      Object.assign(actor, data);
 
-      if (isLocalActor && correctionDistance < 95 && !state.over) {
-        // Small corrections are blended so mobile movement does not jerk every
-        // time an authoritative snapshot arrives. Large errors still snap.
-        actor.x = oldX + (data.x - oldX) * 0.34;
-        actor.y = oldY + (data.y - oldY) * 0.34;
+      const oldX = Number.isFinite(actor.x) ? actor.x : Number(data.x) || 0;
+      const oldY = Number.isFinite(actor.y) ? actor.y : Number(data.y) || 0;
+      const networkX = Number.isFinite(data.x) ? data.x : oldX;
+      const networkY = Number.isFinite(data.y) ? data.y : oldY;
+      const networkVx = Number.isFinite(data.vx) ? data.vx : 0;
+      const networkVy = Number.isFinite(data.vy) ? data.vy : 0;
+      const isLocalActor = data.multiplayerSlotId === runtime.assignment?.slotId;
+      const correctionDistance = Math.hypot(networkX - oldX, networkY - oldY);
+
+      const localMotion = isLocalActor ? {
+        inputX: Number.isFinite(actor.inputX) ? actor.inputX : 0,
+        inputY: Number.isFinite(actor.inputY) ? actor.inputY : 0,
+        facingX: Number.isFinite(actor.facingX) ? actor.facingX : 1,
+        facingY: Number.isFinite(actor.facingY) ? actor.facingY : 0,
+        vx: Number.isFinite(actor.vx) ? actor.vx : 0,
+        vy: Number.isFinite(actor.vy) ? actor.vy : 0,
+      } : null;
+
+      const actorState = { ...data };
+      delete actorState.x;
+      delete actorState.y;
+      delete actorState.vx;
+      delete actorState.vy;
+      delete actorState.inv;
+      if (isLocalActor) {
+        delete actorState.inputX;
+        delete actorState.inputY;
+        delete actorState.facingX;
+        delete actorState.facingY;
       }
-      actor.prevX = oldX;
-      actor.prevY = oldY;
+      Object.assign(actor, actorState);
       actor.inv = data.inv ? { ...data.inv } : null;
       actor.isPlayer = isLocalActor;
+
+      if (isLocalActor) {
+        actor.inputX = localMotion.inputX;
+        actor.inputY = localMotion.inputY;
+        actor.facingX = localMotion.facingX;
+        actor.facingY = localMotion.facingY;
+
+        const rawInput = currentRawInput();
+        const locallyMoving = Math.hypot(rawInput.x, rawInput.y) > 0.06;
+        const snapDistance = globalThis.__wordWarsTouchUI ? 290 : 240;
+        const correction = correctionDistance > snapDistance
+          ? 1
+          : locallyMoving
+            ? 0.025
+            : 0.11;
+        actor.prevX = oldX;
+        actor.prevY = oldY;
+        actor.x = oldX + (networkX - oldX) * correction;
+        actor.y = oldY + (networkY - oldY) * correction;
+        actor.vx = locallyMoving ? localMotion.vx : networkVx;
+        actor.vy = locallyMoving ? localMotion.vy : networkVy;
+      } else if (isNew || correctionDistance > 190) {
+        actor.x = networkX;
+        actor.y = networkY;
+        actor.prevX = networkX;
+        actor.prevY = networkY;
+        actor.vx = networkVx;
+        actor.vy = networkVy;
+        actor.netTargetX = networkX;
+        actor.netTargetY = networkY;
+        actor.netTargetVx = networkVx;
+        actor.netTargetVy = networkVy;
+        actor.netSnapshotAt = receivedAt;
+        actor.netPredictionLead = predictionLeadSeconds;
+      } else {
+        actor.prevX = oldX;
+        actor.prevY = oldY;
+        actor.x = oldX;
+        actor.y = oldY;
+        actor.vx = networkVx;
+        actor.vy = networkVy;
+        actor.netTargetX = networkX;
+        actor.netTargetY = networkY;
+        actor.netTargetVx = networkVx;
+        actor.netTargetVy = networkVy;
+        actor.netSnapshotAt = receivedAt;
+        actor.netPredictionLead = predictionLeadSeconds;
+      }
+
       nextActors.push(actor);
     }
 
     ACTORS = nextActors;
     player = nextActors.find(actor => actor.multiplayerSlotId === runtime.assignment?.slotId) || player;
     bots = nextActors.filter(actor => actor.multiplayerBot);
+    runtime.hasAuthoritativeSnapshot = nextActors.length > 0;
+    if (snapshot.fullWorld || (Array.isArray(snapshot.items) && Array.isArray(snapshot.walls))) {
+      runtime.hasFullWorldSnapshot = true;
+    }
     const actorsBySlot = new Map(nextActors.map(actor => [actor.multiplayerSlotId, actor]));
 
-    items.splice(0, items.length, ...(snapshot.items || []).map(data => restoreItem(data, actorsBySlot)));
-    walls.splice(0, walls.length, ...(snapshot.walls || []).map(data => ({ ...data })));
+    if (snapshot.fullWorld || Array.isArray(snapshot.items)) {
+      items.splice(0, items.length, ...(snapshot.items || []).map(data => restoreItem(data, actorsBySlot)));
+    }
+    if (snapshot.fullWorld || Array.isArray(snapshot.walls)) {
+      walls.splice(0, walls.length, ...(snapshot.walls || []).map(data => ({ ...data })));
+    }
+
     explosions.splice(0, explosions.length, ...(snapshot.explosions || []).map(data => ({ ...data })));
     slotEffects.splice(0, slotEffects.length, ...(snapshot.slotEffects || []).map(data => ({ ...data })));
     interceptEffects.splice(0, interceptEffects.length, ...(snapshot.interceptEffects || []).map(data => ({ ...data })));
@@ -581,17 +754,26 @@
         const bullet = { ...data };
         bullet.owner = data.ownerSlotId ? actorsBySlot.get(data.ownerSlotId) || null : null;
         delete bullet.ownerSlotId;
+        bullet.prevX = bullet.x;
+        bullet.prevY = bullet.y;
         return bullet;
       }));
     }
+
+    const mazeChanged =
+      (typeof activeMazeIndex !== 'undefined' && snapshot.maze?.activeMazeIndex !== activeMazeIndex) ||
+      (typeof pendingMazeIndex !== 'undefined' && snapshot.maze?.pendingMazeIndex !== pendingMazeIndex) ||
+      (typeof mazePhase !== 'undefined' && snapshot.maze?.mazePhase !== mazePhase);
 
     if (typeof activeMazeIndex !== 'undefined') activeMazeIndex = snapshot.maze?.activeMazeIndex ?? activeMazeIndex;
     if (typeof pendingMazeIndex !== 'undefined') pendingMazeIndex = snapshot.maze?.pendingMazeIndex ?? pendingMazeIndex;
     if (typeof mazePhase !== 'undefined') mazePhase = snapshot.maze?.mazePhase ?? mazePhase;
     if (typeof mazeTimer !== 'undefined') mazeTimer = snapshot.maze?.mazeTimer ?? mazeTimer;
-    if (typeof navigationGridCache !== 'undefined') navigationGridCache.clear();
+    if ((mazeChanged || snapshot.fullWorld) && typeof navigationGridCache !== 'undefined') {
+      navigationGridCache.clear();
+    }
 
-    runtime.statsBySlot = snapshot.statsBySlot || runtime.statsBySlot;
+    if (snapshot.statsBySlot) runtime.statsBySlot = snapshot.statsBySlot;
     if (timerEl) {
       timerEl.textContent = `${Math.floor(state.seconds / 60)}:${String(Math.max(0, state.seconds % 60)).padStart(2, '0')}`;
     }
@@ -606,13 +788,180 @@
     }
   }
 
-  multiplayerAdapter.onSnapshot((snapshot) => applySnapshot(snapshot));
+  function updateReplicaVisuals(dt) {
+    simTime += dt;
+    const now = performance.now();
+
+    for (const actor of ACTORS || []) {
+      if (actor === player) continue;
+      
+      // Keep track of rendering boundaries for proper interpolation
+      actor.prevX = actor.x;
+      actor.prevY = actor.y;
+      
+      if (!Number.isFinite(actor.netTargetX) || !Number.isFinite(actor.netTargetY)) continue;
+
+      const roomEntry = runtime.room?.players?.find(
+        entry => entry.slotId === actor.multiplayerSlotId
+      );
+      const sharedInput = runtime.remoteInputs.get(actor.multiplayerSlotId);
+      const sharedInputFresh = Boolean(
+        actor.multiplayerHuman &&
+        roomEntry?.connected !== false &&
+        sharedInput &&
+        now - sharedInput.receivedAt < 1400
+      );
+
+      if (sharedInputFresh) {
+        let inputX = Number.isFinite(sharedInput.x)
+          ? Math.max(-1, Math.min(1, sharedInput.x))
+          : 0;
+        let inputY = Number.isFinite(sharedInput.y)
+          ? Math.max(-1, Math.min(1, sharedInput.y))
+          : 0;
+        const inputLength = Math.hypot(inputX, inputY);
+        if (inputLength > 1) {
+          inputX /= inputLength;
+          inputY /= inputLength;
+        }
+        if (inputLength > 0.04) {
+          actor.facingX = Number.isFinite(sharedInput.facingX)
+            ? sharedInput.facingX
+            : inputX / inputLength;
+          actor.facingY = Number.isFinite(sharedInput.facingY)
+            ? sharedInput.facingY
+            : inputY / inputLength;
+        }
+        
+        // driveActor already accelerates and moves the actor through moveActor(),
+        // including wall collision handling. Do not integrate x/y a second time.
+        driveActor(actor, inputX, inputY, dt, false);
+      }
+
+      const silenceSeconds = Math.max(0, (now - (actor.netSnapshotAt || now)) / 1000);
+      const leadSeconds = Number.isFinite(actor.netPredictionLead)
+        ? actor.netPredictionLead
+        : 0.06;
+      const predictionAge = Math.min(0.75, silenceSeconds + leadSeconds);
+      const targetX = actor.netTargetX + (actor.netTargetVx || 0) * predictionAge;
+      const targetY = actor.netTargetY + (actor.netTargetVy || 0) * predictionAge;
+
+      if (!sharedInputFresh) {
+        const velocityScale = silenceSeconds <= 0.65
+          ? 1
+          : Math.max(0, 1 - (silenceSeconds - 0.65) / 0.35);
+        actor.x += (actor.netTargetVx || 0) * dt * velocityScale;
+        actor.y += (actor.netTargetVy || 0) * dt * velocityScale;
+      }
+
+      const dx = targetX - actor.x;
+      const dy = targetY - actor.y;
+      const distance = Math.hypot(dx, dy);
+      const inputArrivedAfterSnapshot = Boolean(
+        sharedInputFresh &&
+        sharedInput.receivedAt > (actor.netSnapshotAt || 0)
+      );
+
+      if (distance > 180) {
+        actor.x = targetX;
+        actor.y = targetY;
+        actor.prevX = targetX;
+        actor.prevY = targetY;
+      } else if (!inputArrivedAfterSnapshot || distance > 105) {
+        const correctionRate = sharedInputFresh
+          ? (distance > 55 ? 8 : 3.5)
+          : (distance > 60 ? 20 : distance > 22 ? 13 : 8);
+        const correctionBlend = 1 - Math.exp(-correctionRate * Math.min(dt, 0.05));
+        actor.x += dx * correctionBlend;
+        actor.y += dy * correctionBlend;
+      }
+
+      actor.x = Math.max(actor.r, Math.min(CONFIG.W - actor.r, actor.x));
+      actor.y = Math.max(actor.r, Math.min(CONFIG.H - actor.r, actor.y));
+      if (!sharedInputFresh && Math.abs(targetX - actor.x) < 0.12) actor.x = targetX;
+      if (!sharedInputFresh && Math.abs(targetY - actor.y) < 0.12) actor.y = targetY;
+    }
+
+    if (typeof bullets !== 'undefined') {
+      for (let index = bullets.length - 1; index >= 0; index -= 1) {
+        const bullet = bullets[index];
+        bullet.prevX = bullet.x;
+        bullet.prevY = bullet.y;
+        bullet.x += (bullet.vx || 0) * dt;
+        bullet.y += (bullet.vy || 0) * dt;
+        if (Number.isFinite(bullet.life)) {
+          bullet.life -= dt;
+          if (bullet.life <= 0) bullets.splice(index, 1);
+        }
+      }
+    }
+
+    for (let index = explosions.length - 1; index >= 0; index -= 1) {
+      const effect = explosions[index];
+      effect.r += (effect.growRate || CONFIG.EXPLOSION_GROW_RATE) * dt;
+      effect.a -= CONFIG.EXPLOSION_FADE_RATE * dt;
+      if (effect.a <= 0) explosions.splice(index, 1);
+    }
+
+    for (const effect of slotEffects) effect.time = Math.max(0, effect.time - dt);
+    for (const effect of interceptEffects) effect.time = Math.max(0, effect.time - dt);
+  }
+
+  function queueSnapshot(snapshot) {
+    if (!snapshot || snapshot.type !== 'game-snapshot') return;
+    if ((snapshot.sequence ?? 0) <= runtime.lastSnapshotSequence) return;
+    snapshot.__receivedAt = performance.now();
+    if (!runtime.pendingSnapshot || (snapshot.sequence ?? 0) > (runtime.pendingSnapshot.sequence ?? 0)) {
+      runtime.pendingSnapshot = snapshot;
+    }
+    // Asynchronous requestAnimationFrame queuing was removed here to prevent tearing and delay. 
+    // Snapshots are now drained synchronously inside multiplayerTick().
+  }
+
+  multiplayerAdapter.onSnapshot(queueSnapshot);
+
+  function worldSignature() {
+    const itemPart = items.map(item => [
+      item.id ?? '',
+      item.type ?? '',
+      item.char ?? '',
+      Math.round((item.x || 0) / 4),
+      Math.round((item.y || 0) / 4),
+      item.ignited ? 1 : 0,
+      Math.round((item.timer || 0) * 2),
+    ].join(',')).join(';');
+    const wallPart = walls.map(wall => [
+      wall.team ?? '',
+      Math.round(wall.x || 0),
+      Math.round(wall.y || 0),
+      Math.round(wall.w || 0),
+      Math.round(wall.h || 0),
+    ].join(',')).join(';');
+    return `${itemPart}|${wallPart}`;
+  }
 
   function sendSnapshotIfDue() {
     if (!runtime.active || !runtime.started || !runtime.isHost || state.paused) return;
+    if (document.visibilityState !== 'visible') return;
     if (simTime < runtime.nextSnapshotAt) return;
-    runtime.nextSnapshotAt = simTime + 0.125;
-    multiplayerAdapter.sendSnapshot(buildSnapshot());
+
+    const transport = transportProfile();
+    let worldChanged = false;
+    let currentWorldSignature = runtime.lastWorldSignature;
+
+    if (simTime >= runtime.nextWorldCheckAt) {
+      runtime.nextWorldCheckAt = simTime + 0.25;
+      currentWorldSignature = worldSignature();
+      worldChanged = currentWorldSignature !== runtime.lastWorldSignature;
+    }
+
+    const includeWorld = worldChanged || simTime >= runtime.nextWorldSnapshotAt;
+    runtime.nextSnapshotAt = simTime + transport.snapshotIntervalMs / 1000;
+    if (includeWorld) {
+      runtime.lastWorldSignature = currentWorldSignature;
+      runtime.nextWorldSnapshotAt = simTime + transport.worldIntervalMs / 1000;
+    }
+    multiplayerAdapter.sendSnapshot(buildSnapshot(includeWorld));
   }
 
   function statsFor(actor) {
@@ -634,8 +983,6 @@
     return stats ? { ...stats } : null;
   };
 
-  // Track role contributions for every human on the authoritative host. The
-  // values are still capped and converted to small 1–4 Karma awards server-side.
   const pickupBase = pickup;
   pickup = function multiplayerPickup(actor, item) {
     const useful = actor?.multiplayerSlotId && item?.type === 'letter' && getMissingLetters(actor.team).includes(item.char);
@@ -756,20 +1103,25 @@
     return result;
   };
 
-  // Non-host clients send intent instead of mutating their local copy.
   const actionBase = action;
   action = function multiplayerAction(actor) {
-    if (runtime.active && runtime.started && actor === player && !runtime.isHost) {
+    if (runtime.active && runtime.started && actor === player) {
       runtime.actionSequence += 1;
       runtime.lastSentInput = null;
       sendLocalInput(performance.now());
-      return;
+      if (!runtime.isHost) return;
     }
     return actionBase(actor);
   };
 
   function predictLocalMovement(dt) {
     if (!player || state.over || state.paused || player.alive === false) return;
+    
+    // EXTRAPOLATION ORIGIN FIX: Update previous coordinates so the client renderer 
+    // does not stretch and "ghost" the player sprite over huge distances.
+    player.prevX = player.x;
+    player.prevY = player.y;
+
     const raw = currentRawInput();
     let x = raw.x;
     let y = raw.y;
@@ -795,16 +1147,36 @@
       player.facingX += (faceX - player.facingX) * facingBlend;
       player.facingY += (faceY - player.facingY) * facingBlend;
     }
+    
+    // driveActor already performs velocity integration and collision-safe movement.
     driveActor(player, player.inputX, player.inputY, dt, false);
+
+    player.x = Math.max(player.r, Math.min(CONFIG.W - player.r, player.x));
+    player.y = Math.max(player.r, Math.min(CONFIG.H - player.r, player.y));
   }
 
   const tickBase = tick;
   tick = function multiplayerTick(dt) {
     if (!runtime.active || !runtime.started) return tickBase(dt);
+    
+    // Drain snapshot queue synchronously *before* applying any physics ticks.
+    // This prevents positional tearing and race conditions.
+    if (runtime.pendingSnapshot) {
+      applySnapshot(runtime.pendingSnapshot);
+      runtime.pendingSnapshot = null;
+    }
+    
     if (!runtime.isHost) {
-      // Predict only the local actor between authoritative snapshots. The host
-      // still decides collisions, pickups, damage and the final position.
+      if (!runtime.hasAuthoritativeSnapshot) {
+        const result = tickBase(dt);
+        globalThis.updateMobileControlsState?.(dt);
+        return result;
+      }
+
       predictLocalMovement(dt);
+      updateReplicaVisuals(dt);
+
+      globalThis.updateMobileControlsState?.(dt);
       return;
     }
 
@@ -844,6 +1216,7 @@
       if (runtime.isHost && runtime.started) {
         multiplayerAdapter.sendEvent({ type: 'round-start', index });
         runtime.nextSnapshotAt = simTime;
+        runtime.nextWorldSnapshotAt = simTime;
         sendSnapshotIfDue();
       }
     }
@@ -864,6 +1237,7 @@
       nextRolePreviewEl?.classList.add('hidden');
       if (runtime.isHost) {
         runtime.nextSnapshotAt = simTime;
+        runtime.nextWorldSnapshotAt = simTime;
         sendSnapshotIfDue();
         multiplayerAdapter.sendEvent({
           type: 'round-finished',
@@ -904,13 +1278,21 @@
     runtime.assignment = null;
     runtime.isHost = false;
     runtime.remoteInputs.clear();
+    runtime.actionSequence = 0;
+    runtime.inputSequence = 0;
+    runtime.pendingSnapshot = null;
+    runtime.lastSnapshotReceivedAt = 0;
+    runtime.smoothedSnapshotGapMs = 100;
+    runtime.hasAuthoritativeSnapshot = false;
+    runtime.hasFullWorldSnapshot = false;
+    runtime.lastFullStateRequestAt = 0;
+    runtime.lastForcedSnapshotAt = 0;
     runtime.statsBySlot = Object.create(null);
     globalThis.multiplayerRoomState = null;
     globalThis.multiplayerIdentity = null;
     multiplayerPresenceEl?.classList.add('hidden');
     if (disconnect) multiplayerAdapter.disconnect();
   };
-
 
   function compactUsername(value, limit = 18) {
     const name = String(value || 'Redditor');
@@ -934,6 +1316,16 @@
         : `u/${username}${connected ? '' : ' · BOT'}`;
 
       ctx.save();
+      
+      // DIAGNOSTIC VISUALIZATION:
+      // If enabled, draw a tiny green dot where the host authoritatively predicts the player is.
+      // This visualizes the physical drag difference between network target and local prediction.
+      if (globalThis.__debugMultiplayer === true && Number.isFinite(actor.netTargetX)) {
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+        ctx.beginPath();
+        ctx.arc(actor.netTargetX, actor.netTargetY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       if (!local && connected) {
         ctx.beginPath();
@@ -977,8 +1369,19 @@
     runtime.assignment = assignment;
     runtime.isHost = room.hostUserId === identity.userId;
     runtime.remoteInputs.clear();
+    runtime.actionSequence = 0;
+    runtime.inputSequence = 0;
     runtime.lastSnapshotSequence = -1;
+    runtime.lastSnapshotReceivedAt = 0;
+    runtime.smoothedSnapshotGapMs = room.transport?.snapshotIntervalMs || 100;
+    runtime.hasAuthoritativeSnapshot = runtime.isHost;
+    runtime.hasFullWorldSnapshot = runtime.isHost;
+    runtime.lastFullStateRequestAt = 0;
+    runtime.lastForcedSnapshotAt = 0;
     runtime.nextSnapshotAt = simTime;
+    runtime.nextWorldSnapshotAt = simTime;
+    runtime.nextWorldCheckAt = simTime;
+    runtime.lastWorldSignature = '';
     runtime.statsBySlot = Object.create(null);
     for (const slot of globalThis.MULTIPLAYER_SLOT_LAYOUT || []) {
       runtime.statsBySlot[slot.id] = EMPTY_STATS();
@@ -986,6 +1389,20 @@
     lobbyScreen?.classList.add('hidden');
     refreshActorPresence();
     refreshMultiplayerPresenceHud();
+    globalThis.updateMobileControlsState?.(0);
+    globalThis.refreshMobileLayout?.();
+    draw?.(1);
+
+    if (!runtime.isHost) {
+      const buffered = runtime.pendingSnapshot;
+      runtime.pendingSnapshot = null;
+      if (buffered) queueMicrotask(() => queueSnapshot(buffered));
+    }
+
+    runtime.lastSentInput = null;
+    runtime.lastInputSentAt = -Infinity;
+    sendLocalInput(performance.now());
+
     msg(runtime.isHost
       ? 'You are hosting. Empty and disconnected roles are controlled by bots.'
       : `Connected to u/${room.players.find(entry => entry.userId === room.hostUserId)?.username || 'host'}.`);

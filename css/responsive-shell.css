@@ -1,0 +1,561 @@
+/* ======================================================================
+   WORD WARS — FINAL RESPONSIVE APP SHELL
+   Loaded after base.css and ui.css so one predictable layout wins over
+   older portrait/landscape experiments. Gameplay rendering is untouched.
+   ====================================================================== */
+
+:root {
+  --ww-safe-top: max(10px, env(safe-area-inset-top));
+  --ww-safe-right: max(10px, env(safe-area-inset-right));
+  --ww-safe-bottom: max(12px, env(safe-area-inset-bottom));
+  --ww-safe-left: max(10px, env(safe-area-inset-left));
+  --ww-screen-gap: clamp(10px, 2.2vh, 18px);
+  --ww-panel-width: min(430px, calc(100vw - var(--ww-safe-left) - var(--ww-safe-right) - 24px));
+  --ww-overlay-bg: rgba(24, 28, 34, 0.985);
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+/* Hidden always means hidden, regardless of orientation-specific rules. */
+.overlay.hidden,
+html.touch-ui .overlay.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* A single reliable screen system for every menu/dialog. */
+#stage > .overlay:not(.hidden) {
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: var(--ww-screen-gap);
+  padding:
+    max(58px, calc(var(--ww-safe-top) + 46px))
+    max(18px, calc(var(--ww-safe-right) + 8px))
+    max(20px, calc(var(--ww-safe-bottom) + 8px))
+    max(18px, calc(var(--ww-safe-left) + 8px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--ww-overlay-bg);
+  text-align: center;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+#stage > .overlay:not(.hidden) > * {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+#stage > .overlay:not(.hidden) button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.overlay-back {
+  position: fixed !important;
+  top: var(--ww-safe-top) !important;
+  left: var(--ww-safe-left) !important;
+  z-index: 330 !important;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  margin: 0 !important;
+  white-space: nowrap;
+}
+
+/* Keep the game chrome out of menus and dialogs. */
+html.ui-overlay-open #hudLayer,
+html.ui-overlay-open #mobileControls,
+html.ui-overlay-open #pauseBtn,
+html.ui-overlay-open #gameBar,
+html.ui-overlay-open .role-announcement {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Fullscreen is the one control that remains available everywhere. */
+html.ui-overlay-open #fullscreenBtn {
+  display: grid !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Main menu ------------------------------------------------------------ */
+.landing-screen {
+  justify-content: safe center !important;
+  text-align: center !important;
+}
+
+.wordmark {
+  width: var(--ww-panel-width) !important;
+  margin: 0 auto 2px !important;
+  font-size: clamp(46px, 10vw, 74px) !important;
+  line-height: 0.78 !important;
+  letter-spacing: -0.045em !important;
+}
+
+.tagline,
+.match-meta,
+#modeStatus {
+  width: var(--ww-panel-width) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center !important;
+}
+
+.tagline {
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+}
+
+.mode-actions {
+  width: var(--ww-panel-width) !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+  margin: 2px auto 0 !important;
+}
+
+.mode-actions button {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 50px;
+}
+
+.match-meta {
+  margin-top: 2px !important;
+  color: #98a2af;
+  line-height: 1.35;
+}
+
+/* Role selection ------------------------------------------------------- */
+.role-screen h2,
+.role-list {
+  width: var(--ww-panel-width) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.role-screen h2 {
+  margin-bottom: 2px !important;
+  text-align: center !important;
+}
+
+.role-list {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+}
+
+.role-option {
+  width: 100% !important;
+  min-height: 52px;
+  margin: 0 !important;
+}
+
+/* Briefing / instructions --------------------------------------------- */
+.solo-briefing-screen,
+.instruction-screen,
+.result-screen,
+.solo-upgrade-screen,
+.pause-menu,
+.multiplayer-lobby-screen {
+  text-align: center !important;
+}
+
+.solo-briefing-screen h2,
+.solo-briefing-intro,
+.instruction-screen h2,
+.instruction-aim,
+.instruction-job,
+.instruction-controls,
+#resultText,
+.solo-upgrade-summary,
+.pause-help {
+  width: var(--ww-panel-width) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center !important;
+}
+
+.solo-briefing-intro,
+.instruction-aim,
+.instruction-job,
+.instruction-controls,
+#resultText,
+.solo-upgrade-summary,
+.pause-help {
+  line-height: 1.4;
+}
+
+#tutorialCanvas {
+  position: relative !important;
+  inset: auto !important;
+  width: min(620px, calc(100vw - var(--ww-safe-left) - var(--ww-safe-right) - 28px)) !important;
+  height: auto !important;
+  max-height: min(31vh, 250px);
+  aspect-ratio: 760 / 270;
+  margin: 2px auto !important;
+  border-radius: 8px;
+}
+
+.instruction-start,
+#soloStartBtn,
+#resultButton {
+  width: min(320px, var(--ww-panel-width)) !important;
+  min-width: 0 !important;
+}
+
+/* Result, pause and upgrade -------------------------------------------- */
+.next-role-preview,
+.pause-actions,
+.solo-upgrade-choices {
+  width: var(--ww-panel-width) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.pause-actions {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+}
+
+.pause-actions button,
+.solo-upgrade-option {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.solo-upgrade-choices {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+}
+
+/* Multiplayer lobby ---------------------------------------------------- */
+.lobby-minimal {
+  width: var(--ww-panel-width) !important;
+  max-width: var(--ww-panel-width) !important;
+  display: grid !important;
+  justify-items: stretch !important;
+  align-content: center !important;
+  gap: 9px !important;
+  margin: 0 auto !important;
+  text-align: center !important;
+}
+
+.lobby-countdown,
+.lobby-assignment,
+.lobby-player-count,
+.lobby-player-list,
+.lobby-status {
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.lobby-player-list {
+  max-height: min(30vh, 220px) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+.lobby-player-row {
+  min-width: 0;
+  text-align: left;
+}
+
+/* App utility controls ------------------------------------------------- */
+.game-utilities {
+  position: fixed !important;
+  top: var(--ww-safe-top) !important;
+  right: var(--ww-safe-right) !important;
+  z-index: 360 !important;
+}
+
+/* Mobile shell --------------------------------------------------------- */
+@media (pointer: coarse) {
+  html.touch-ui,
+  html.touch-ui body {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+  }
+
+  html.touch-ui body {
+    display: block !important;
+  }
+
+  html.touch-ui #wrap,
+  html.touch-ui #stage {
+    width: 100vw !important;
+    height: 100dvh !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html.touch-ui #wrap {
+    display: block !important;
+  }
+
+  html.touch-ui #stage {
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  html.touch-ui #stage > .overlay:not(.hidden) {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    pointer-events: auto !important;
+  }
+
+  html.touch-ui #stage > .overlay:not(.hidden),
+  html.touch-ui #stage > .overlay:not(.hidden) * {
+    pointer-events: auto;
+  }
+
+  html.touch-ui .rotate-overlay,
+  html.touch-ui .portrait-tip,
+  html.touch-ui #gameBar {
+    display: none !important;
+  }
+
+  html.touch-ui .game-utilities .utility-button {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  /* Keep the action button away from rounded corners/navigation bars. */
+  html.touch-ui .mobile-action,
+  html.touch-ui.solo-running .mobile-action {
+    right: max(24px, calc(env(safe-area-inset-right) + 18px)) !important;
+    bottom: max(34px, calc(env(safe-area-inset-bottom) + 26px)) !important;
+  }
+}
+
+/* Portrait phones ------------------------------------------------------ */
+@media (pointer: coarse) and (orientation: portrait) {
+  :root {
+    --ww-panel-width: min(360px, calc(100vw - var(--ww-safe-left) - var(--ww-safe-right) - 16px));
+    --ww-screen-gap: clamp(9px, 1.8vh, 15px);
+  }
+
+  html.touch-ui #stage > .overlay:not(.hidden) {
+    justify-content: safe center !important;
+    padding:
+      max(62px, calc(var(--ww-safe-top) + 50px))
+      max(14px, calc(var(--ww-safe-right) + 4px))
+      max(18px, calc(var(--ww-safe-bottom) + 6px))
+      max(14px, calc(var(--ww-safe-left) + 4px)) !important;
+  }
+
+  html.touch-ui .wordmark {
+    font-size: clamp(48px, 17vw, 72px) !important;
+  }
+
+  html.touch-ui .tagline {
+    font-size: 15px !important;
+  }
+
+  html.touch-ui .role-option {
+    min-height: 54px !important;
+  }
+
+  html.touch-ui #tutorialCanvas {
+    width: var(--ww-panel-width) !important;
+    max-height: 25vh;
+  }
+
+  html.touch-ui .instruction-aim {
+    font-size: 11px !important;
+  }
+
+  html.touch-ui .instruction-job,
+  html.touch-ui .instruction-controls {
+    font-size: 10px !important;
+  }
+
+  html.touch-ui .lobby-player-list {
+    max-height: 28vh !important;
+  }
+
+  html.touch-ui .mobile-action,
+  html.touch-ui.solo-running .mobile-action {
+    width: clamp(82px, 23vw, 96px) !important;
+    height: clamp(82px, 23vw, 96px) !important;
+  }
+}
+
+/* Landscape phones / short Devvit webviews ---------------------------- */
+@media (pointer: coarse) and (orientation: landscape) {
+  :root {
+    --ww-panel-width: min(560px, calc(100vw - var(--ww-safe-left) - var(--ww-safe-right) - 52px));
+    --ww-screen-gap: clamp(6px, 1.5vh, 11px);
+  }
+
+  html.touch-ui #stage > .overlay:not(.hidden) {
+    justify-content: safe center !important;
+    padding:
+      max(48px, calc(var(--ww-safe-top) + 42px))
+      max(18px, calc(var(--ww-safe-right) + 8px))
+      max(12px, calc(var(--ww-safe-bottom) + 4px))
+      max(18px, calc(var(--ww-safe-left) + 8px)) !important;
+  }
+
+  html.touch-ui .wordmark {
+    font-size: clamp(36px, 12vh, 58px) !important;
+  }
+
+  html.touch-ui .tagline {
+    margin-top: 2px !important;
+    margin-bottom: 3px !important;
+    font-size: 13px !important;
+  }
+
+  html.touch-ui .mode-actions {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 9px !important;
+  }
+
+  html.touch-ui .mode-actions button {
+    min-height: 44px !important;
+  }
+
+  html.touch-ui .match-meta {
+    font-size: 9px !important;
+  }
+
+  html.touch-ui .role-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-width: 620px !important;
+  }
+
+  html.touch-ui .role-option {
+    min-height: 46px !important;
+  }
+
+  html.touch-ui .instruction-screen {
+    display: grid !important;
+    grid-template-columns: minmax(280px, 1.15fr) minmax(230px, .85fr) !important;
+    grid-template-areas:
+      "tutorial role"
+      "tutorial title"
+      "tutorial aim"
+      "tutorial job"
+      "tutorial controls"
+      "tutorial start" !important;
+    column-gap: 18px !important;
+    row-gap: 5px !important;
+    align-content: safe center !important;
+    justify-items: center !important;
+  }
+
+  html.touch-ui .instruction-screen .overlay-back {
+    grid-area: none;
+  }
+
+  html.touch-ui .instruction-role { grid-area: role; }
+  html.touch-ui .instruction-screen h2 { grid-area: title; }
+  html.touch-ui .instruction-aim { grid-area: aim; }
+  html.touch-ui #tutorialCanvas { grid-area: tutorial; }
+  html.touch-ui .instruction-job { grid-area: job; }
+  html.touch-ui .instruction-controls { grid-area: controls; }
+  html.touch-ui .instruction-start { grid-area: start; }
+
+  html.touch-ui #tutorialCanvas {
+    width: 100% !important;
+    max-width: 520px !important;
+    max-height: 58vh !important;
+  }
+
+  html.touch-ui .instruction-aim,
+  html.touch-ui .instruction-job,
+  html.touch-ui .instruction-controls {
+    width: 100% !important;
+    font-size: 9px !important;
+  }
+
+  html.touch-ui .pause-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-width: 580px !important;
+  }
+
+  html.touch-ui .solo-upgrade-choices {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    max-width: 720px !important;
+  }
+
+  html.touch-ui .lobby-player-list {
+    max-height: 22vh !important;
+  }
+}
+
+/* Very short webviews: start at the top and let the screen scroll. */
+@media (pointer: coarse) and (max-height: 430px) {
+  html.touch-ui #stage > .overlay:not(.hidden) {
+    justify-content: flex-start !important;
+  }
+
+  html.touch-ui .landing-screen {
+    justify-content: safe center !important;
+  }
+
+  html.touch-ui .wordmark {
+    margin-bottom: 0 !important;
+  }
+
+  html.touch-ui .solo-briefing-screen h2,
+  html.touch-ui .result-screen h2,
+  html.touch-ui .pause-menu h2,
+  html.touch-ui .solo-upgrade-screen h2 {
+    font-size: clamp(24px, 8vh, 34px) !important;
+  }
+}
+
+/* Narrow portrait devices. */
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 360px) {
+  html.touch-ui .wordmark {
+    font-size: clamp(43px, 16vw, 60px) !important;
+  }
+
+  html.touch-ui #stage > .overlay:not(.hidden) {
+    padding-left: max(10px, var(--ww-safe-left)) !important;
+    padding-right: max(10px, var(--ww-safe-right)) !important;
+  }
+
+  html.touch-ui .game-utilities .utility-button {
+    width: 38px !important;
+    height: 38px !important;
+  }
+}

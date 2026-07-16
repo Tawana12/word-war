@@ -1,0 +1,6 @@
+{
+  "$schema": "https://www.partykit.io/schema.json",
+  "name": "word-wars-live",
+  "main": "src/server.ts",
+  "compatibilityDate": "2026-07-16"
+}
