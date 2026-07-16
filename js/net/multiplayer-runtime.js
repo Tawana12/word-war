@@ -78,6 +78,11 @@
     latestAcknowledgedActionSequence: 0,
     localActionPredictionDeadline: 0,
     lastStopInputSequence: 0,
+    lastMoveInputX: 0,
+    lastMoveInputY: 0,
+    releaseAnchorX: 0,
+    releaseAnchorY: 0,
+    releaseGuardUntil: 0,
     lastLocalAuthoritativeSimTime: -Infinity,
     hostActionSequenceBySlot: new Map(),
     nextBulletId: 1,
@@ -422,8 +427,15 @@
     runtime.lastSentInput = next;
     runtime.lastInputSentAt = now;
     if (!runtime.isHost) {
+      if (nextMagnitude > 0.05) {
+        runtime.lastMoveInputX = next.x;
+        runtime.lastMoveInputY = next.y;
+      }
       if (nextMagnitude <= 0.05 && previousMagnitude > 0.05) {
         runtime.lastStopInputSequence = next.inputSequence;
+        runtime.releaseAnchorX = player?.x || 0;
+        runtime.releaseAnchorY = player?.y || 0;
+        runtime.releaseGuardUntil = now + 650;
       }
       runtime.localInputHistory.push({
         inputSequence: next.inputSequence,
@@ -924,17 +936,33 @@
         actor.vx = networkVx;
         actor.vy = networkVy;
       } else if (!locallyMoving) {
-        // Once the host acknowledges the stop, correct only a limited amount.
-        // A stale or unusually delayed packet can no longer return the player
-        // to the position from before the joystick gesture.
-        if (distance <= 2.5) {
+        // A stop packet and its confirming snapshot can cross in flight. Reject
+        // the familiar backward correction while the release guard is active.
+        // This prevents the character moving forward, then visibly stepping
+        // back when the joystick is released on the non-host device.
+        const moveLength = Math.hypot(runtime.lastMoveInputX, runtime.lastMoveInputY);
+        const moveX = moveLength > 0.05 ? runtime.lastMoveInputX / moveLength : 0;
+        const moveY = moveLength > 0.05 ? runtime.lastMoveInputY / moveLength : 0;
+        const correctionAlongLastMove = errorX * moveX + errorY * moveY;
+        const releaseAgeProtected = performance.now() < runtime.releaseGuardUntil;
+        const anchorDriftX = predictedAuthoritativeX - runtime.releaseAnchorX;
+        const anchorDriftY = predictedAuthoritativeY - runtime.releaseAnchorY;
+        const anchorDistance = Math.hypot(anchorDriftX, anchorDriftY);
+        const looksLikePreReleaseState = correctionAlongLastMove < -0.5 && anchorDistance < 110;
+
+        if (distance <= 3 || (releaseAgeProtected && looksLikePreReleaseState)) {
           actor.netCorrectionX = 0;
           actor.netCorrectionY = 0;
-        } else {
-          const maxReleaseCorrection = 34;
+        } else if (distance > 135) {
+          // Large divergence is still corrected so walls and collisions remain
+          // authoritative, but normal release jitter is never visible.
+          const maxReleaseCorrection = 18;
           const scale = Math.min(1, maxReleaseCorrection / Math.max(distance, 0.001));
           actor.netCorrectionX = errorX * scale;
           actor.netCorrectionY = errorY * scale;
+        } else {
+          actor.netCorrectionX = 0;
+          actor.netCorrectionY = 0;
         }
       } else if (distance > 120) {
         actor.netCorrectionX = errorX * 0.26;

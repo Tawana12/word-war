@@ -2348,3 +2348,47 @@ html.solo-running .multiplayer-presence {
   }
 }
 
+
+/* Final-match player board. It lives inside the result overlay and never
+   covers active gameplay. Only connected humans from the current room appear. */
+.match-players-board {
+  width: min(340px, 84vw);
+  margin: 12px auto 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 7px;
+  background: rgba(12,15,19,.86);
+  text-align: left;
+}
+.match-players-board.hidden { display: none; }
+.match-players-board > strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #cbd1d6;
+  font-size: 9px;
+  letter-spacing: .13em;
+}
+.match-players-board ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.match-players-board li {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 0;
+  border-top: 1px solid rgba(255,255,255,.08);
+  font-size: 11px;
+}
+.match-players-board li:first-child { border-top: 0; }
+.match-players-board .match-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.match-players-board .match-player-score {
+  color: #f1ca5c;
+  font-weight: 800;
+}
