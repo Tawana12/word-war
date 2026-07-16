@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "word-wars-live",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-07-16",
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WORD_WARS_ROOM",
+        "class_name": "WordWarsRoom"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["WordWarsRoom"]
+    }
+  ],
+
+  "routes": [
+    {
+      "pattern": "realtime.gameinclass.com",
+      "custom_domain": true
+    }
+  ]
+}

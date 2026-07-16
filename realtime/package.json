@@ -8,7 +8,9 @@
     "check": "tsc --noEmit"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
     "partykit": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "wrangler": "^4.86.0"
   }
 }

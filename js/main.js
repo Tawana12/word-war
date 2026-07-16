@@ -5,6 +5,9 @@ let accumulator = 0;
 let gameLoopStarted = false;
 let pendingRole = null;
 let pendingDuty = null;
+let activeSimulationStep = CONFIG.FIXED_DT;
+let fpsWindowStartedAt = performance.now();
+let fpsWindowFrames = 0;
 
 function frame(now) {
   if (state.paused) {
@@ -23,17 +26,47 @@ function frame(now) {
   let frameDt = (now - last) / 1000;
   last = now;
   if (frameDt > CONFIG.MAX_FRAME_DT) frameDt = CONFIG.MAX_FRAME_DT;
+
+  // Multiplayer does not need the solo game's 120 Hz physics rate. A stable
+  // 60 Hz network simulation cuts mobile CPU use in half and keeps host and
+  // replica devices on the same practical cadence.
+  const multiplayerActive = Boolean(
+    globalThis.multiplayerRuntime?.active && globalThis.multiplayerRuntime?.started
+  );
+  const simulationStep = multiplayerActive ? 1 / 60 : CONFIG.FIXED_DT;
+  if (simulationStep !== activeSimulationStep) {
+    activeSimulationStep = simulationStep;
+    accumulator = 0;
+  }
   accumulator += frameDt;
 
-  while (accumulator >= CONFIG.FIXED_DT) {
-    tick(CONFIG.FIXED_DT);
-    accumulator -= CONFIG.FIXED_DT;
+  const maxCatchUpSteps = multiplayerActive ? 4 : 8;
+  let steps = 0;
+  while (accumulator >= simulationStep && steps < maxCatchUpSteps) {
+    tick(simulationStep);
+    accumulator -= simulationStep;
+    steps += 1;
+  }
+  if (accumulator >= simulationStep) {
+    // Discard a stale backlog after a tab or mobile frame stall rather than
+    // freezing for a burst of old physics ticks.
+    accumulator %= simulationStep;
+  }
+
+  fpsWindowFrames += 1;
+  const fpsElapsed = now - fpsWindowStartedAt;
+  if (fpsElapsed >= 1000) {
+    if (globalThis.__wordWarsNetDebug) {
+      globalThis.__wordWarsNetDebug.fps = Math.round(fpsWindowFrames * 1000 / fpsElapsed);
+    }
+    fpsWindowFrames = 0;
+    fpsWindowStartedAt = now;
   }
 
   // DOM camera transforms run once per displayed frame rather than once per
-  // 120 Hz simulation step. This avoids repeated layout reads/writes on phones.
+  // simulation step. This avoids repeated layout reads/writes on phones.
   globalThis.updateMobileCameraFrame?.(frameDt);
-  draw(accumulator / CONFIG.FIXED_DT);
+  draw(accumulator / simulationStep);
   requestAnimationFrame(frame);
 }
 

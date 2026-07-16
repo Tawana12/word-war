@@ -1,8 +1,30 @@
 'use strict';
 
+function getWordWarsNetDebug() {
+  if (!globalThis.__wordWarsNetDebug) {
+    globalThis.__wordWarsNetDebug = {
+      fps: 0,
+      inputsSent: 0,
+      motionSnapshotsSent: 0,
+      worldSnapshotsSent: 0,
+      motionSnapshotsReceived: 0,
+      worldSnapshotsReceived: 0,
+      droppedMotionSnapshots: 0,
+      reconnectCount: 0,
+      bufferedAmount: 0,
+      averagePacketSize: 0,
+      averageSnapshotGapMs: 0,
+      reconciliationError: 0,
+      lastPacketSize: 0,
+      _packetSamples: 0,
+    };
+  }
+  return globalThis.__wordWarsNetDebug;
+}
+
 // Universal bridge. Inside Reddit/Devvit it keeps using the parent iframe
 // bridge. On a normal Vercel page it connects directly to the lightweight
-// PartyKit room server in /realtime.
+// Cloudflare realtime room server.
 class MultiplayerAdapter {
   constructor() {
     this.webMode = window.parent === window;
@@ -30,8 +52,9 @@ class MultiplayerAdapter {
     this.reconnectTimer = null;
     this.reconnectAttempt = 0;
     this.heartbeatTimer = null;
-    this.pendingLatest = { input: null, snapshot: null };
+    this.pendingLatest = { input: null, motion: null, world: null };
     this.flushQueued = false;
+    this.flushTimer = null;
 
     this.clientId = this.readOrCreateClientId();
     this.nickname = this.readOrCreateNickname();
@@ -114,7 +137,14 @@ class MultiplayerAdapter {
       this.post('multiplayer-relay', { kind: 'snapshot', payload: snapshot });
       return;
     }
-    this.pendingLatest.snapshot = snapshot;
+
+    const isWorld = snapshot?.type === 'world-snapshot' || snapshot?.fullWorld === true;
+    if (isWorld) {
+      this.pendingLatest.world = snapshot;
+    } else {
+      if (this.pendingLatest.motion) getWordWarsNetDebug().droppedMotionSnapshots += 1;
+      this.pendingLatest.motion = snapshot;
+    }
     this.scheduleLatestFlush();
   }
 
@@ -182,7 +212,9 @@ class MultiplayerAdapter {
     this.manualClose = true;
     this.stopHeartbeat();
     clearTimeout(this.reconnectTimer);
+    clearTimeout(this.flushTimer);
     this.reconnectTimer = null;
+    this.flushTimer = null;
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.sendRaw({ type: 'leave' });
     }
@@ -224,7 +256,10 @@ class MultiplayerAdapter {
     this.pendingConnectResolve = null;
     this.pendingConnectReject = null;
     this.pendingLatest.input = null;
-    this.pendingLatest.snapshot = null;
+    this.pendingLatest.motion = null;
+    this.pendingLatest.world = null;
+    clearTimeout(this.flushTimer);
+    this.flushTimer = null;
     for (const listener of this.connectionListeners) listener(false);
   }
 
@@ -278,7 +313,7 @@ class MultiplayerAdapter {
   webSocketUrl() {
     const { partykitHost, partykitRoom } = this.webConfig();
     if (!partykitHost || partykitHost.includes('REPLACE_WITH')) {
-      throw new Error('Set your PartyKit host in js/net/web-config.js before using multiplayer.');
+      throw new Error('Set your realtime host in js/net/web-config.js before using multiplayer.');
     }
     const host = partykitHost.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/$/, '');
     const protocol = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'ws' : 'wss';
@@ -325,6 +360,7 @@ class MultiplayerAdapter {
       } catch {
         return;
       }
+      getWordWarsNetDebug().lastPacketSize = String(event.data).length;
       this.handleWebMessage(data);
     });
 
@@ -335,6 +371,7 @@ class MultiplayerAdapter {
       this.connected = false;
 
       if (this.manualClose || !this.shouldReconnect) return;
+      getWordWarsNetDebug().reconnectCount += 1;
       const delay = Math.min(5000, 350 * Math.pow(1.7, this.reconnectAttempt++));
       this.reconnectTimer = setTimeout(() => this.openWebSocket(), delay);
     });
@@ -365,15 +402,37 @@ class MultiplayerAdapter {
   sendRaw(message) {
     if (this.socket?.readyState !== WebSocket.OPEN) return false;
     try {
-      this.socket.send(JSON.stringify(message));
+      const serialized = JSON.stringify(message);
+      this.socket.send(serialized);
+      const debug = getWordWarsNetDebug();
+      const size = serialized.length;
+      debug.lastPacketSize = size;
+      debug._packetSamples += 1;
+      debug.averagePacketSize += (size - debug.averagePacketSize) / Math.min(120, debug._packetSamples);
+      debug.bufferedAmount = this.socket.bufferedAmount;
+      if (message?.kind === 'input') debug.inputsSent += 1;
+      if (message?.kind === 'snapshot') {
+        if (message.payload?.type === 'world-snapshot' || message.payload?.fullWorld) {
+          debug.worldSnapshotsSent += 1;
+        } else {
+          debug.motionSnapshotsSent += 1;
+        }
+      }
       return true;
     } catch {
       return false;
     }
   }
 
-  scheduleLatestFlush() {
-    if (this.flushQueued) return;
+  scheduleLatestFlush(delayMs = 0) {
+    if (this.flushQueued || this.flushTimer) return;
+    if (delayMs > 0) {
+      this.flushTimer = setTimeout(() => {
+        this.flushTimer = null;
+        this.scheduleLatestFlush();
+      }, delayMs);
+      return;
+    }
     this.flushQueued = true;
     queueMicrotask(() => {
       this.flushQueued = false;
@@ -384,20 +443,41 @@ class MultiplayerAdapter {
   flushLatest() {
     if (this.socket?.readyState !== WebSocket.OPEN) return;
 
-    // If a mobile browser briefly stalls, never replay the old movement queue.
-    // Keep only the newest input and snapshot until the socket drains.
-    if (this.socket.bufferedAmount > 256 * 1024) {
-      setTimeout(() => this.scheduleLatestFlush(), 20);
+    const debug = getWordWarsNetDebug();
+    debug.bufferedAmount = this.socket.bufferedAmount;
+
+    // Never build a long browser-side WebSocket queue. Keep only the latest
+    // movement and retry once per rendered frame while the socket drains.
+    if (this.socket.bufferedAmount > 32 * 1024) {
+      this.scheduleLatestFlush(24);
       return;
     }
 
+    // Inputs are highest priority so direction changes are not blocked behind
+    // a larger state packet.
     const input = this.pendingLatest.input;
-    const snapshot = this.pendingLatest.snapshot;
     this.pendingLatest.input = null;
-    this.pendingLatest.snapshot = null;
-
     if (input) this.sendRaw({ type: 'relay', kind: 'input', payload: input });
-    if (snapshot) this.sendRaw({ type: 'relay', kind: 'snapshot', payload: snapshot });
+
+    if (this.socket.bufferedAmount > 24 * 1024) {
+      this.scheduleLatestFlush(24);
+      return;
+    }
+
+    const motion = this.pendingLatest.motion;
+    this.pendingLatest.motion = null;
+    if (motion) this.sendRaw({ type: 'relay', kind: 'snapshot', payload: motion });
+
+    // World snapshots are larger and lower priority.
+    if (this.socket.bufferedAmount < 16 * 1024) {
+      const world = this.pendingLatest.world;
+      this.pendingLatest.world = null;
+      if (world) this.sendRaw({ type: 'relay', kind: 'snapshot', payload: world });
+    }
+
+    if (this.pendingLatest.input || this.pendingLatest.motion || this.pendingLatest.world) {
+      this.scheduleLatestFlush(16);
+    }
   }
 
   acceptRoom(room, identity = this.identity, assignment = null) {
@@ -452,6 +532,12 @@ class MultiplayerAdapter {
       return;
     }
     if (data.kind === 'snapshot') {
+      const debug = getWordWarsNetDebug();
+      if (data.payload?.type === 'world-snapshot' || data.payload?.fullWorld) {
+        debug.worldSnapshotsReceived += 1;
+      } else {
+        debug.motionSnapshotsReceived += 1;
+      }
       for (const listener of this.snapshotListeners) listener(data.payload, data);
       return;
     }

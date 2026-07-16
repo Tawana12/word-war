@@ -24,6 +24,9 @@ const mobileLandscapeQuery = window.matchMedia('(orientation: landscape)');
 let joystickPointerId = null;
 let joystickOriginX = 0;
 let joystickOriginY = 0;
+let joystickMaxRadius = 48;
+let pendingJoystickPoint = null;
+let joystickMoveFrame = 0;
 let mobileCameraLeft = null;
 let mobileCameraTop = null;
 let mobileLabelTimer = 0;
@@ -109,6 +112,9 @@ function syncMobileOrientation() {
 
 function resetJoystick() {
   joystickPointerId = null;
+  pendingJoystickPoint = null;
+  cancelAnimationFrame(joystickMoveFrame);
+  joystickMoveFrame = 0;
   mobileInput.x = 0;
   mobileInput.y = 0;
   mobileInput.active = false;
@@ -126,11 +132,12 @@ function resetJoystick() {
   }
 }
 
-function placeFloatingJoystick(clientX, clientY) {
+function placeFloatingJoystick(clientX, clientY, stageRect = null) {
   if (!mobileStageEl || !joystickEl) return;
 
-  const stageRect = mobileStageEl.getBoundingClientRect();
+  stageRect ||= mobileStageEl.getBoundingClientRect();
   const size = joystickEl.offsetWidth || 132;
+  joystickMaxRadius = size * 0.36;
   const half = size / 2;
 
   // Spawn directly beneath the thumb. Only a small safety margin keeps the
@@ -159,7 +166,7 @@ function placeFloatingJoystick(clientX, clientY) {
 function updateJoystickFromPoint(clientX, clientY) {
   if (!joystickEl || !joystickKnobEl) return;
 
-  const maxRadius = (joystickEl.offsetWidth || 132) * 0.36;
+  const maxRadius = joystickMaxRadius;
   let dx = clientX - joystickOriginX;
   let dy = clientY - joystickOriginY;
   let distance = Math.hypot(dx, dy);
@@ -206,7 +213,7 @@ function beginFloatingJoystick(event) {
   event.preventDefault();
   joystickPointerId = event.pointerId;
   mobileStageEl.setPointerCapture?.(event.pointerId);
-  placeFloatingJoystick(event.clientX, event.clientY);
+  placeFloatingJoystick(event.clientX, event.clientY, rect);
   updateJoystickFromPoint(event.clientX, event.clientY);
 }
 
@@ -219,7 +226,16 @@ function handleJoystickMove(event) {
   event.preventDefault();
   const samples = event.getCoalescedEvents?.();
   const latest = samples?.length ? samples[samples.length - 1] : event;
-  updateJoystickFromPoint(latest.clientX, latest.clientY);
+  pendingJoystickPoint = { x: latest.clientX, y: latest.clientY };
+  if (joystickMoveFrame) return;
+  joystickMoveFrame = requestAnimationFrame(() => {
+    joystickMoveFrame = 0;
+    const point = pendingJoystickPoint;
+    pendingJoystickPoint = null;
+    if (point && joystickPointerId !== null) {
+      updateJoystickFromPoint(point.x, point.y);
+    }
+  });
 }
 
 // Keep the normal pointer stream on every browser. Where raw pointer samples
