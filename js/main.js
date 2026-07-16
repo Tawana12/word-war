@@ -5,9 +5,49 @@ let accumulator = 0;
 let gameLoopStarted = false;
 let pendingRole = null;
 let pendingDuty = null;
-let activeSimulationStep = CONFIG.FIXED_DT;
-let fpsWindowStartedAt = performance.now();
-let fpsWindowFrames = 0;
+
+const DEFAULT_PERFORMANCE_CONFIG = Object.freeze({
+  fixedDt: CONFIG.FIXED_DT,
+  pickupRangePad: CONFIG.PICKUP_RANGE_PAD,
+  letterPickupAssist: CONFIG.LETTER_PICKUP_ASSIST,
+  depositRange: CONFIG.DEPOSIT_RANGE,
+  repairRange: CONFIG.REPAIR_RANGE,
+  bombArmRange: CONFIG.BOMB_ARM_RANGE,
+  botThinkInterval: CONFIG.BOT_THINK_INTERVAL,
+});
+
+function applyGamePerformanceProfile(multiplayer = false) {
+  const coarsePointer = globalThis.matchMedia?.('(pointer: coarse)')?.matches;
+  const lowCoreDevice = Number(navigator.hardwareConcurrency || 8) <= 4;
+
+  globalThis.WORD_WARS_LOW_FX = Boolean(multiplayer && (coarsePointer || lowCoreDevice));
+
+  // A 60 Hz simulation is already smoother than the network stream and cuts
+  // multiplayer CPU/collision work roughly in half compared with 120 Hz.
+  CONFIG.FIXED_DT = multiplayer ? 1 / 60 : DEFAULT_PERFORMANCE_CONFIG.fixedDt;
+
+  // Make network interactions forgiving. Both the host and joining clients run
+  // this profile, so pickup/drop validation uses the same ranges everywhere.
+  CONFIG.PICKUP_RANGE_PAD = multiplayer
+    ? DEFAULT_PERFORMANCE_CONFIG.pickupRangePad + (coarsePointer ? 18 : 12)
+    : DEFAULT_PERFORMANCE_CONFIG.pickupRangePad;
+  CONFIG.LETTER_PICKUP_ASSIST = multiplayer
+    ? DEFAULT_PERFORMANCE_CONFIG.letterPickupAssist + (coarsePointer ? 14 : 10)
+    : DEFAULT_PERFORMANCE_CONFIG.letterPickupAssist;
+  CONFIG.DEPOSIT_RANGE = multiplayer
+    ? DEFAULT_PERFORMANCE_CONFIG.depositRange + (coarsePointer ? 16 : 10)
+    : DEFAULT_PERFORMANCE_CONFIG.depositRange;
+  CONFIG.REPAIR_RANGE = multiplayer
+    ? DEFAULT_PERFORMANCE_CONFIG.repairRange + 10
+    : DEFAULT_PERFORMANCE_CONFIG.repairRange;
+  CONFIG.BOMB_ARM_RANGE = multiplayer
+    ? DEFAULT_PERFORMANCE_CONFIG.bombArmRange + 10
+    : DEFAULT_PERFORMANCE_CONFIG.bombArmRange;
+  CONFIG.BOT_THINK_INTERVAL = multiplayer
+    ? Math.max(DEFAULT_PERFORMANCE_CONFIG.botThinkInterval, globalThis.WORD_WARS_LOW_FX ? 0.68 : 0.58)
+    : DEFAULT_PERFORMANCE_CONFIG.botThinkInterval;
+}
+
 
 function frame(now) {
   if (state.paused) {
@@ -26,47 +66,25 @@ function frame(now) {
   let frameDt = (now - last) / 1000;
   last = now;
   if (frameDt > CONFIG.MAX_FRAME_DT) frameDt = CONFIG.MAX_FRAME_DT;
-
-  // Multiplayer does not need the solo game's 120 Hz physics rate. A stable
-  // 60 Hz network simulation cuts mobile CPU use in half and keeps host and
-  // replica devices on the same practical cadence.
-  const multiplayerActive = Boolean(
-    globalThis.multiplayerRuntime?.active && globalThis.multiplayerRuntime?.started
-  );
-  const simulationStep = multiplayerActive ? 1 / 60 : CONFIG.FIXED_DT;
-  if (simulationStep !== activeSimulationStep) {
-    activeSimulationStep = simulationStep;
-    accumulator = 0;
-  }
   accumulator += frameDt;
 
-  const maxCatchUpSteps = multiplayerActive ? 4 : 8;
-  let steps = 0;
-  while (accumulator >= simulationStep && steps < maxCatchUpSteps) {
-    tick(simulationStep);
-    accumulator -= simulationStep;
-    steps += 1;
+  let simulationSteps = 0;
+  const maxSimulationSteps = globalThis.WORD_WARS_LOW_FX ? 2 : 4;
+  while (accumulator >= CONFIG.FIXED_DT && simulationSteps < maxSimulationSteps) {
+    tick(CONFIG.FIXED_DT);
+    accumulator -= CONFIG.FIXED_DT;
+    simulationSteps += 1;
   }
-  if (accumulator >= simulationStep) {
-    // Discard a stale backlog after a tab or mobile frame stall rather than
-    // freezing for a burst of old physics ticks.
-    accumulator %= simulationStep;
-  }
-
-  fpsWindowFrames += 1;
-  const fpsElapsed = now - fpsWindowStartedAt;
-  if (fpsElapsed >= 1000) {
-    if (globalThis.__wordWarsNetDebug) {
-      globalThis.__wordWarsNetDebug.fps = Math.round(fpsWindowFrames * 1000 / fpsElapsed);
-    }
-    fpsWindowFrames = 0;
-    fpsWindowStartedAt = now;
+  // Never replay a long backlog after a mobile frame stall. A stale physics
+  // burst feels worse than dropping excess accumulated time in realtime play.
+  if (simulationSteps >= maxSimulationSteps && accumulator >= CONFIG.FIXED_DT) {
+    accumulator = 0;
   }
 
   // DOM camera transforms run once per displayed frame rather than once per
-  // simulation step. This avoids repeated layout reads/writes on phones.
+  // 120 Hz simulation step. This avoids repeated layout reads/writes on phones.
   globalThis.updateMobileCameraFrame?.(frameDt);
-  draw(accumulator / simulationStep);
+  draw(accumulator / CONFIG.FIXED_DT);
   requestAnimationFrame(frame);
 }
 
@@ -113,6 +131,7 @@ function hideAllAppOverlays() {
 }
 
 function returnToMainMenu() {
+  applyGamePerformanceProfile(false);
   closePauseMenu?.(false);
   globalThis.endMultiplayerRuntime?.();
 
@@ -196,6 +215,7 @@ document.querySelector('#startMatchBtn')?.addEventListener('click', () => {
 });
 
 function startGame(playerRole, playerDuty = null) {
+  applyGamePerformanceProfile(false);
   resetFreshMatchSystems();
   const roster = createSessionRoster(playerRole, playerDuty);
 
@@ -259,6 +279,7 @@ function startGame(playerRole, playerDuty = null) {
 
 function startMultiplayerGame(room, identity, assignment) {
   if (!room || !identity || !assignment) return;
+  applyGamePerformanceProfile(true);
   selectedSessionMode = SESSION_MODES.MULTIPLAYER;
   globalThis.multiplayerRoomState = room;
   globalThis.multiplayerIdentity = identity;

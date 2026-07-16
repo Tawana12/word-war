@@ -252,8 +252,10 @@
               const color = player.inv?.type === 'letter' ? '#28c943' : '#53d8fb';
               ctx.strokeStyle = color;
               ctx.lineWidth = 4;
-              ctx.shadowColor = color;
-              ctx.shadowBlur = 12;
+              if (!globalThis.WORD_WARS_LOW_FX) {
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 12;
+              }
             } else {
               ctx.strokeStyle = team === 'blue' ? '#2176ff66' : '#ff3b3b66';
               ctx.lineWidth = 2;
@@ -349,8 +351,10 @@
           if (isActive) {
             ctx.fillStyle = '#28c9432e';
             ctx.fillRect(bp.x + 2, bp.y + 2, bp.w - 4, bp.h - 4);
-            ctx.shadowColor = '#28c943';
-            ctx.shadowBlur = 10;
+            if (!globalThis.WORD_WARS_LOW_FX) {
+              ctx.shadowColor = '#28c943';
+              ctx.shadowBlur = 10;
+            }
           }
           ctx.setLineDash(isActive ? [] : [4, 5]);
           ctx.strokeRect(bp.x + 2, bp.y + 2, bp.w - 4, bp.h - 4);
@@ -433,7 +437,8 @@
         for (const it of items) {
           if (it.type === 'letter') {
             if (!isItemVisible(it)) continue;
-            const justRevealed = it.revealTime && simTime - it.revealTime < 0.8;
+            const justRevealed = !globalThis.WORD_WARS_LOW_FX &&
+              it.revealTime && simTime - it.revealTime < 0.8;
             if (justRevealed) {
               const p = (simTime - it.revealTime) / 0.8;
               ctx.beginPath();
@@ -442,7 +447,8 @@
               ctx.lineWidth = 4;
               ctx.stroke();
             }
-            const scatterPulse = (it.scatteredUntil || 0) > simTime
+            const scatterPulse = !globalThis.WORD_WARS_LOW_FX &&
+              (it.scatteredUntil || 0) > simTime
               ? 1 + 0.16 * Math.sin((it.scatteredUntil - simTime) * 24)
               : 1;
             ctx.save();
@@ -510,9 +516,20 @@
       function drawTreeCanopies() {
         for (const tree of trees) {
           const playerInside = player && dist(player, tree) < tree.r + player.r;
-          const sway = Math.sin(simTime * 1.1 + tree.sway) * 1.5;
           ctx.save();
           ctx.globalAlpha = playerInside ? 0.42 : 0.92;
+
+          if (globalThis.WORD_WARS_LOW_FX) {
+            // One simple canopy path instead of five animated arcs per tree.
+            ctx.fillStyle = '#3f7840';
+            ctx.beginPath();
+            ctx.arc(tree.x, tree.y - tree.r * 0.08, tree.r * 0.92, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            continue;
+          }
+
+          const sway = Math.sin(simTime * 1.1 + tree.sway) * 1.5;
           ctx.fillStyle = '#386f39';
           ctx.beginPath();
           ctx.arc(tree.x - tree.r * 0.28 + sway, tree.y, tree.r * 0.67, 0, Math.PI * 2);
@@ -529,6 +546,7 @@
       }
 
       function drawWorldEffects() {
+        if (globalThis.WORD_WARS_LOW_FX) return;
         for (const effect of slotEffects) {
           if (!effect.world) continue;
           const progress = 1 - effect.time / CONFIG.SLOT_EFFECT_TIME;
@@ -541,7 +559,16 @@
       }
 
       function drawExplosions() {
-        for (const e of explosions) { ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fillStyle = `rgba(255,100,50,${Math.max(0, e.a)})`; ctx.fill(); }
+        const start = globalThis.WORD_WARS_LOW_FX
+          ? Math.max(0, explosions.length - 5)
+          : 0;
+        for (let i = start; i < explosions.length; i++) {
+          const e = explosions[i];
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,100,50,${Math.max(0, e.a)})`;
+          ctx.fill();
+        }
       }
 
       function drawActors(alpha = 1) {
