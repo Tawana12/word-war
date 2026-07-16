@@ -140,6 +140,15 @@ export default class WordWarsRealtime implements Party.Server {
 
     player.lastSeenAt = Date.now();
 
+    if (type === 'ping') {
+      sender.send(JSON.stringify({
+        type: 'pong',
+        pingId: Number(data.pingId) || 0,
+        serverTime: Date.now(),
+      }));
+      return;
+    }
+
     if (type === 'heartbeat') {
       this.advanceMatch(match);
       return;

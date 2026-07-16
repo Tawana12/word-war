@@ -300,9 +300,9 @@
     const advertised = runtime.room?.transport || {};
     if (multiplayerAdapter.isWebMode?.()) {
       return {
-        inputIntervalMs: 33,
-        snapshotIntervalMs: 50,
-        worldIntervalMs: Math.max(550, advertised.worldIntervalMs || 650),
+        inputIntervalMs: 25,
+        snapshotIntervalMs: 40,
+        worldIntervalMs: Math.max(950, advertised.worldIntervalMs || 1100),
       };
     }
     return {
@@ -570,7 +570,6 @@
       boost: actor.boost || 0,
       coverTreeId: actor.coverTreeId ?? null,
       mode: actor.mode,
-      inv: serializeInventory(actor.inv),
       multiplayerActionSequence: actor.multiplayerActionSequence || 0,
       ackInputSequence: actor.multiplayerProcessedInputSequence || 0,
     };
@@ -620,15 +619,18 @@
   }
 
   function buildMotionSnapshot() {
+    const sequence = ++runtime.motionSequence;
     return {
       type: 'motion-snapshot',
-      sequence: ++runtime.motionSequence,
+      sequence,
       roundIndex: state.demoMatch?.roundIndex || 0,
       simTime,
-      state: compactSharedState(),
-      demoMatch: compactDemoMatch(),
+      seconds: state.seconds,
       actors: (ACTORS || []).map(serializeMotionActor),
-      bullets: typeof bullets !== 'undefined' ? bullets.map(serializeBullet) : [],
+      // Bullets need network correction, but not at the full actor rate.
+      bullets: sequence % 2 === 0 && typeof bullets !== 'undefined'
+        ? bullets.map(serializeBullet)
+        : undefined,
       sentAt: Date.now(),
     };
   }
@@ -687,7 +689,7 @@
     if (Array.isArray(incomingState.blue)) state.blue = [...incomingState.blue];
     if (Array.isArray(incomingState.red)) state.red = [...incomingState.red];
     state.seconds = incomingState.seconds ?? state.seconds;
-    state.over = Boolean(incomingState.over);
+    if (incomingState.over !== undefined) state.over = Boolean(incomingState.over);
     state.spawnTimer = incomingState.spawnTimer ?? state.spawnTimer;
     if (incomingState.jammedUntil) state.jammedUntil = { ...incomingState.jammedUntil };
     if (incomingState.wordLocks && state.wordLocks) state.wordLocks = { ...incomingState.wordLocks };
@@ -761,18 +763,28 @@
 
     if (isLocalActor) {
       acknowledgeLocalInput(data.ackInputSequence ?? data.multiplayerProcessedInputSequence);
-      const unacknowledgedLead = Math.min(
-        0.14,
-        runtime.localInputHistory.length * transportProfile().inputIntervalMs / 1000
-      );
-      const predictedAuthoritativeX = networkX + networkVx * unacknowledgedLead;
-      const predictedAuthoritativeY = networkY + networkVy * unacknowledgedLead;
+
+      // The host snapshot is roughly one full round trip behind the local visual
+      // prediction: input travels to the host, then the result travels back.
+      // Project the authoritative position forward by the measured RTT before
+      // comparing it with the local player. This removes the constant backward
+      // pull that made the non-host device feel slow.
+      const rawRttMs = Number(globalThis.__wordWarsNetworkLatencyMs);
+      const rttSeconds = Math.max(0.025, Math.min(0.22,
+        Number.isFinite(rawRttMs) ? rawRttMs / 1000 : 0.08
+      ));
+      const rawInput = currentRawInput();
+      const locallyMoving = Math.hypot(rawInput.x, rawInput.y) > 0.05;
+      const projectionSeconds = locallyMoving ? rttSeconds : 0;
+      const predictedAuthoritativeX = networkX + networkVx * projectionSeconds;
+      const predictedAuthoritativeY = networkY + networkVy * projectionSeconds;
       const errorX = predictedAuthoritativeX - actor.x;
       const errorY = predictedAuthoritativeY - actor.y;
       const distance = Math.hypot(errorX, errorY);
       if (globalThis.__wordWarsNetDebug) globalThis.__wordWarsNetDebug.reconciliationError = distance;
 
-      if (isNew || distance > (globalThis.__wordWarsTouchUI ? 240 : 210)) {
+      const snapDistance = globalThis.__wordWarsTouchUI ? 210 : 180;
+      if (isNew || distance > snapDistance) {
         actor.x = predictedAuthoritativeX;
         actor.y = predictedAuthoritativeY;
         actor.prevX = predictedAuthoritativeX;
@@ -781,9 +793,21 @@
         actor.netCorrectionY = 0;
         actor.vx = networkVx;
         actor.vy = networkVy;
-      } else {
+      } else if (!locallyMoving) {
+        // When the stick/key is released, converge quickly to the true stop
+        // point so collisions and interactions remain authoritative.
         actor.netCorrectionX = errorX;
         actor.netCorrectionY = errorY;
+      } else if (distance > 70) {
+        // Correct serious drift while moving, but never fight every local frame.
+        actor.netCorrectionX = errorX * 0.45;
+        actor.netCorrectionY = errorY * 0.45;
+      } else if (distance > 38) {
+        actor.netCorrectionX = errorX * 0.12;
+        actor.netCorrectionY = errorY * 0.12;
+      } else {
+        actor.netCorrectionX = 0;
+        actor.netCorrectionY = 0;
       }
       return;
     }
@@ -844,6 +868,7 @@
     runtime.lastMotionSequence = snapshot.sequence ?? runtime.lastMotionSequence + 1;
     const receivedAt = updateSnapshotTiming(snapshot);
     applySharedSnapshotState(snapshot, false);
+    if (Number.isFinite(snapshot.seconds)) state.seconds = snapshot.seconds;
 
     const actorsBySlot = new Map((ACTORS || []).map(actor => [actor.multiplayerSlotId, actor]));
     for (const data of snapshot.actors) {
@@ -864,7 +889,7 @@
     player = actorsBySlot.get(runtime.assignment?.slotId) || player;
     bots = (ACTORS || []).filter(actor => actor.multiplayerBot);
     runtime.hasAuthoritativeSnapshot = true;
-    syncMotionBullets(snapshot.bullets, actorsBySlot);
+    if (Array.isArray(snapshot.bullets)) syncMotionBullets(snapshot.bullets, actorsBySlot);
 
     const now = performance.now();
     if (now >= runtime.nextHudRefreshAt) {
@@ -967,7 +992,8 @@
   function updateReplicaVisuals(dt) {
     simTime += dt;
     const now = performance.now();
-    const interpolationDelay = globalThis.__wordWarsTouchUI ? 105 : 90;
+    const adaptiveDelay = Math.max(52, Math.min(88, runtime.smoothedSnapshotGapMs * 1.22));
+    const interpolationDelay = adaptiveDelay + (globalThis.__wordWarsTouchUI ? 4 : 0);
     const renderAt = now - interpolationDelay;
 
     for (const actor of ACTORS || []) {
@@ -998,7 +1024,7 @@
         facingY = a.facingY + (b.facingY - a.facingY) * t;
       } else {
         const latest = states[states.length - 1];
-        const extrapolation = Math.min(0.12, Math.max(0, (renderAt - latest.receivedAt) / 1000));
+        const extrapolation = Math.min(0.09, Math.max(0, (renderAt - latest.receivedAt) / 1000));
         x = latest.x + latest.vx * extrapolation;
         y = latest.y + latest.vy * extrapolation;
         vx = latest.vx;
@@ -1308,10 +1334,16 @@
     const correctionDistance = Math.hypot(correctionX, correctionY);
     if (correctionDistance > 0.02) {
       const moving = Math.hypot(x, y) > 0.05;
-      const correctionRate = moving ? 8.5 : 15;
+      const correctionRate = moving ? 3.2 : 14;
       const correctionBlend = 1 - Math.exp(-correctionRate * Math.min(dt, 0.05));
-      const appliedX = correctionX * correctionBlend;
-      const appliedY = correctionY * correctionBlend;
+      let appliedX = correctionX * correctionBlend;
+      let appliedY = correctionY * correctionBlend;
+      const appliedLength = Math.hypot(appliedX, appliedY);
+      const maxCorrectionPerTick = moving ? 3.5 : 11;
+      if (appliedLength > maxCorrectionPerTick) {
+        appliedX = appliedX / appliedLength * maxCorrectionPerTick;
+        appliedY = appliedY / appliedLength * maxCorrectionPerTick;
+      }
       player.x += appliedX;
       player.y += appliedY;
       player.netCorrectionX = correctionX - appliedX;
@@ -1328,15 +1360,21 @@
     
     // Apply at most the newest world and motion packet. Stale movement is
     // deliberately dropped so a temporary mobile frame stall cannot create lag.
+    let appliedWorldSimTime = -Infinity;
     if (runtime.pendingWorldSnapshot) {
       const snapshot = runtime.pendingWorldSnapshot;
       runtime.pendingWorldSnapshot = null;
+      appliedWorldSimTime = Number(snapshot.simTime) || -Infinity;
       applySnapshot(snapshot);
     }
     if (runtime.pendingMotionSnapshot) {
       const snapshot = runtime.pendingMotionSnapshot;
       runtime.pendingMotionSnapshot = null;
-      applySnapshot(snapshot);
+      // A world packet already carries actor motion. Skip a same-frame motion
+      // packet unless it is meaningfully newer, avoiding a periodic mobile hitch.
+      if ((Number(snapshot.simTime) || 0) > appliedWorldSimTime + 0.012) {
+        applySnapshot(snapshot);
+      }
     }
     
     if (!runtime.isHost) {

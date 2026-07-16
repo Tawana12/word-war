@@ -15,6 +15,8 @@ function getWordWarsNetDebug() {
       averagePacketSize: 0,
       averageSnapshotGapMs: 0,
       reconciliationError: 0,
+      latencyMs: 80,
+      jitterMs: 0,
       lastPacketSize: 0,
       _packetSamples: 0,
     };
@@ -52,6 +54,10 @@ class MultiplayerAdapter {
     this.reconnectTimer = null;
     this.reconnectAttempt = 0;
     this.heartbeatTimer = null;
+    this.pingSequence = 0;
+    this.pendingPings = new Map();
+    this.latencyMs = 80;
+    this.jitterMs = 0;
     this.pendingLatest = { input: null, motion: null, world: null };
     this.flushQueued = false;
     this.flushTimer = null;
@@ -400,16 +406,30 @@ class MultiplayerAdapter {
 
   startHeartbeat() {
     this.stopHeartbeat();
+    this.sendPing();
     this.heartbeatTimer = setInterval(() => {
       if (this.socket?.readyState === WebSocket.OPEN) {
         this.sendRaw({ type: 'heartbeat', at: Date.now() });
+        this.sendPing();
       }
-    }, 5000);
+    }, 3000);
+  }
+
+  sendPing() {
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
+    const pingId = ++this.pingSequence;
+    this.pendingPings.set(pingId, performance.now());
+    while (this.pendingPings.size > 8) {
+      const oldest = this.pendingPings.keys().next().value;
+      this.pendingPings.delete(oldest);
+    }
+    this.sendRaw({ type: 'ping', pingId });
   }
 
   stopHeartbeat() {
     clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
+    this.pendingPings.clear();
   }
 
   sendRaw(message) {
@@ -508,6 +528,23 @@ class MultiplayerAdapter {
 
   handleWebMessage(data) {
     if (!data || typeof data !== 'object') return;
+
+    if (data.type === 'pong') {
+      const pingId = Number(data.pingId) || 0;
+      const startedAt = this.pendingPings.get(pingId);
+      if (Number.isFinite(startedAt)) {
+        this.pendingPings.delete(pingId);
+        const measured = Math.max(1, Math.min(1000, performance.now() - startedAt));
+        const previous = this.latencyMs;
+        this.latencyMs += (measured - this.latencyMs) * 0.22;
+        this.jitterMs += (Math.abs(measured - previous) - this.jitterMs) * 0.18;
+        const debug = getWordWarsNetDebug();
+        debug.latencyMs = this.latencyMs;
+        debug.jitterMs = this.jitterMs;
+        globalThis.__wordWarsNetworkLatencyMs = this.latencyMs;
+      }
+      return;
+    }
 
     if (data.type === 'welcome') {
       this.acceptRoom(data.room, data.identity, data.assignment);
