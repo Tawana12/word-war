@@ -57,6 +57,7 @@ class MultiplayerAdapter {
     this.flushTimer = null;
 
     this.clientId = this.readOrCreateClientId();
+    this.sessionId = this.createSessionId();
     this.nickname = this.readOrCreateNickname();
 
     if (!this.webMode) {
@@ -225,6 +226,11 @@ class MultiplayerAdapter {
     }
     this.socket = null;
     this.resetConnectionState();
+
+    // A deliberate leave must start a brand-new 15-second lobby next time.
+    // Unexpected WebSocket reconnects do not call disconnect(), so they keep
+    // the same session ID and return to the same live match.
+    this.sessionId = this.createSessionId();
   }
 
   post(type, extra = {}) {
@@ -261,6 +267,11 @@ class MultiplayerAdapter {
     clearTimeout(this.flushTimer);
     this.flushTimer = null;
     for (const listener of this.connectionListeners) listener(false);
+  }
+
+  createSessionId() {
+    return crypto.randomUUID?.() ||
+      `session-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
   }
 
   readOrCreateClientId() {
@@ -319,6 +330,7 @@ class MultiplayerAdapter {
     const protocol = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'ws' : 'wss';
     const params = new URLSearchParams({
       clientId: this.clientId,
+      sessionId: this.sessionId,
       nickname: this.nickname,
     });
     return `${protocol}://${host}/parties/main/${encodeURIComponent(partykitRoom)}?${params}`;
@@ -348,6 +360,7 @@ class MultiplayerAdapter {
       this.sendRaw({
         type: 'hello',
         clientId: this.clientId,
+        sessionId: this.sessionId,
         nickname: this.nickname,
       });
       this.startHeartbeat();

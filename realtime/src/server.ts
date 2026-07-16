@@ -16,6 +16,7 @@ type Slot = {
 type Player = {
   userId: string;
   clientId: string;
+  sessionId: string;
   username: string;
   slotId: string;
   team: Team;
@@ -102,8 +103,9 @@ export default class WordWarsRealtime implements Party.Server {
   onConnect(connection: Party.Connection, ctx: Party.ConnectionContext) {
     const url = new URL(ctx.request.url);
     const clientId = cleanText(url.searchParams.get('clientId'), 80) || connection.id;
+    const sessionId = cleanText(url.searchParams.get('sessionId'), 100) || connection.id;
     const nickname = cleanText(url.searchParams.get('nickname'), 16) || this.randomNickname();
-    this.join(connection, clientId, nickname);
+    this.join(connection, clientId, sessionId, nickname);
   }
 
   onMessage(message: string | ArrayBuffer, sender: Party.Connection) {
@@ -123,6 +125,7 @@ export default class WordWarsRealtime implements Party.Server {
         this.join(
           sender,
           cleanText(data.clientId, 80) || sender.id,
+          cleanText(data.sessionId, 100) || sender.id,
           cleanText(data.nickname, 16) || this.randomNickname()
         );
       }
@@ -155,6 +158,7 @@ export default class WordWarsRealtime implements Party.Server {
     }
 
     if (type === 'leave') {
+      this.leaveConnection(sender.id);
       try {
         sender.close(1000, 'left match');
       } catch {
@@ -208,13 +212,22 @@ export default class WordWarsRealtime implements Party.Server {
     this.disconnectConnection(connection.id);
   }
 
-  private join(connection: Party.Connection, rawClientId: string, rawNickname: string) {
+  private join(
+    connection: Party.Connection,
+    rawClientId: string,
+    rawSessionId: string,
+    rawNickname: string,
+  ) {
     if (this.connectionMeta.has(connection.id)) return;
 
     const clientId = cleanText(rawClientId, 80) || connection.id;
+    const sessionId = cleanText(rawSessionId, 100) || connection.id;
     const nickname = cleanText(rawNickname, 16) || this.randomNickname();
 
-    const existing = this.findReconnectPlayer(clientId);
+    // Only reconnect a dropped socket from the same active play session.
+    // A fresh Play Multiplayer click gets a new sessionId and therefore a
+    // brand-new lobby unless another lobby is currently counting down.
+    const existing = this.findReconnectPlayer(sessionId);
     let match: Match;
     let player: Player;
 
@@ -251,10 +264,11 @@ export default class WordWarsRealtime implements Party.Server {
         return;
       }
 
-      const userId = clientId;
+      const userId = cleanText(`${clientId}-${sessionId}`, 160) || sessionId;
       player = {
         userId,
         clientId,
+        sessionId,
         username: nickname,
         slotId: assignedSlot.id,
         team: assignedSlot.team,
@@ -286,6 +300,37 @@ export default class WordWarsRealtime implements Party.Server {
     this.broadcastLeaderboard();
   }
 
+  private leaveConnection(connectionId: string) {
+    const meta = this.connectionMeta.get(connectionId);
+    this.connectionMeta.delete(connectionId);
+    if (!meta) return;
+
+    const match = this.matches.get(meta.matchId);
+    const player = match?.players.get(meta.userId);
+    if (!match || !player || player.connectionId !== connectionId) return;
+
+    if (match.status === 'lobby') {
+      match.players.delete(player.userId);
+      match.version += 1;
+
+      if (match.players.size === 0) {
+        this.matches.delete(match.id);
+        return;
+      }
+
+      this.ensureHost(match);
+      this.broadcastRoom(match);
+      return;
+    }
+
+    player.connected = false;
+    player.connectionId = null;
+    player.lastSeenAt = Date.now();
+    match.version += 1;
+    this.ensureHost(match);
+    this.broadcastRoom(match);
+  }
+
   private disconnectConnection(connectionId: string) {
     const meta = this.connectionMeta.get(connectionId);
     this.connectionMeta.delete(connectionId);
@@ -309,16 +354,15 @@ export default class WordWarsRealtime implements Party.Server {
   private pickMatch(): Match {
     const now = Date.now();
     const candidates = [...this.matches.values()]
-      .filter((match) => {
-        if (match.status === 'finished') return false;
-        if (!this.nextOpenSlot(match)) return false;
-        if (match.status === 'lobby') return true;
-        return Boolean(match.startedAt && now - match.startedAt < 45_000);
-      })
-      .sort((a, b) => {
-        if (a.status !== b.status) return a.status === 'lobby' ? -1 : 1;
-        return this.connectedCount(b) - this.connectedCount(a) || a.createdAt - b.createdAt;
-      });
+      .filter((match) => (
+        match.status === 'lobby' &&
+        now < match.startsAt &&
+        Boolean(this.nextOpenSlot(match))
+      ))
+      .sort((a, b) => (
+        this.connectedCount(b) - this.connectedCount(a) ||
+        a.createdAt - b.createdAt
+      ));
 
     return candidates[0] || this.createMatch();
   }
@@ -342,10 +386,11 @@ export default class WordWarsRealtime implements Party.Server {
     return match;
   }
 
-  private findReconnectPlayer(clientId: string): { match: Match; player: Player } | null {
+  private findReconnectPlayer(sessionId: string): { match: Match; player: Player } | null {
     for (const match of this.matches.values()) {
       if (match.status === 'finished') continue;
-      const player = match.players.get(clientId);
+      const player = [...match.players.values()]
+        .find((candidate) => candidate.sessionId === sessionId);
       if (player) return { match, player };
     }
     return null;
