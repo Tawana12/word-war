@@ -2348,3 +2348,130 @@ html.solo-running .multiplayer-presence {
   }
 }
 
+
+/* Final-match player board. It lives inside the result overlay and never
+   covers active gameplay. Only connected humans from the current room appear. */
+.match-players-board {
+  width: min(340px, 84vw);
+  margin: 12px auto 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 7px;
+  background: rgba(12,15,19,.86);
+  text-align: left;
+}
+.match-players-board.hidden { display: none; }
+.match-players-board > strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #cbd1d6;
+  font-size: 9px;
+  letter-spacing: .13em;
+}
+.match-players-board ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.match-players-board li {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 0;
+  border-top: 1px solid rgba(255,255,255,.08);
+  font-size: 11px;
+}
+.match-players-board li:first-child { border-top: 0; }
+.match-players-board .match-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.match-players-board .match-player-score {
+  color: #f1ca5c;
+  font-weight: 800;
+}
+
+/* Final HUD cleanup ------------------------------------------------------ */
+/* Never show the old live Karma panel or its generated/random entries while
+   a match is active. The only player list is the real-player card at the end. */
+.web-karma-board,
+#webLeaderboardList,
+.live-karma,
+.live-karma-board,
+.karma-leaderboard,
+.karma-points,
+[data-karma-board] {
+  display: none !important;
+}
+
+/* The name form is a modal-style menu prompt, not an in-game overlay. */
+.web-live-panel {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  z-index: auto !important;
+  margin: 12px auto 0 !important;
+  width: min(320px, 88vw) !important;
+}
+
+/* Put pause/fullscreen below the arena action, away from both word panels. */
+.game-utilities,
+html.touch-ui .game-utilities,
+html.touch-ui.game-started .game-utilities,
+html.touch-ui.solo-running .game-utilities {
+  top: auto !important;
+  right: auto !important;
+  bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  flex-direction: row !important;
+  gap: 6px !important;
+  z-index: 120 !important;
+}
+
+.game-utilities .utility-button,
+.game-utilities .pause-button,
+.game-utilities .fullscreen-btn,
+html.touch-ui .game-utilities .utility-button {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 7px !important;
+  font-size: 16px !important;
+  opacity: .82;
+}
+
+.game-utilities .utility-button:hover,
+.game-utilities .utility-button:focus-visible {
+  opacity: 1;
+}
+
+.match-players-board .match-player-team {
+  color: #aeb7c0;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+/* No Karma wording or score column remains on the final player card. */
+.match-players-board .match-player-score {
+  display: none !important;
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  .game-utilities,
+  html.touch-ui .game-utilities,
+  html.touch-ui.game-started .game-utilities {
+    bottom: max(6px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .game-utilities .utility-button,
+  .game-utilities .pause-button,
+  .game-utilities .fullscreen-btn,
+  html.touch-ui .game-utilities .utility-button {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 15px !important;
+  }
+}

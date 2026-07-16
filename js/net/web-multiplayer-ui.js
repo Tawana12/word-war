@@ -6,51 +6,87 @@
   const nicknameInput = document.querySelector('#webNicknameInput');
   const nicknameSave = document.querySelector('#webNicknameSave');
   const nicknameHint = document.querySelector('#webNicknameHint');
+  const multiplayerButton = document.querySelector('#multiplayerModeBtn');
   const matchBoard = document.querySelector('#matchPlayersBoard');
   const matchPlayersList = document.querySelector('#matchPlayersList');
 
   if (!adapter?.isWebMode?.()) return;
 
   let currentRoom = null;
-  let leaderboardEntries = [];
-
-  panel?.classList.remove('hidden');
-  if (nicknameInput) nicknameInput.value = displayName(adapter.getNickname?.());
 
   function displayName(value) {
     return String(value || '').replace(/_/g, ' ').trim();
   }
 
-  function setValidation(message = '') {
-    const hasError = Boolean(message);
-    nicknameInput?.setAttribute('aria-invalid', hasError ? 'true' : 'false');
-    panel?.classList.toggle('has-error', hasError);
+  function savedName() {
+    return displayName(adapter.getNickname?.());
+  }
+
+  function showNamePrompt(message = '') {
+    panel?.classList.remove('hidden');
+    panel?.classList.toggle('has-error', Boolean(message));
     if (nicknameHint) {
-      nicknameHint.textContent = message || 'Shown in the lobby and above your character.';
+      nicknameHint.textContent = message || 'This name appears above your player and on the final score card.';
+    }
+    if (nicknameInput) {
+      nicknameInput.value = savedName();
+      requestAnimationFrame(() => nicknameInput.focus());
     }
   }
 
+  function hideNamePrompt() {
+    panel?.classList.add('hidden');
+    panel?.classList.remove('has-error');
+  }
+
   function saveNickname({ focusOnError = false } = {}) {
-    if (!nicknameInput) return Boolean(adapter.getNickname?.());
+    if (!nicknameInput) return Boolean(savedName());
     const raw = nicknameInput.value.trim();
     if (!raw) {
-      setValidation('Enter a name before joining multiplayer.');
+      showNamePrompt('Enter your name before joining multiplayer.');
       if (focusOnError) nicknameInput.focus();
       return false;
     }
 
     const saved = adapter.setNickname?.(raw) || '';
     if (!saved) {
-      setValidation('Use letters, numbers, spaces, _ or -.');
+      showNamePrompt('Use letters, numbers, spaces, _ or -.');
       if (focusOnError) nicknameInput.focus();
       return false;
     }
 
     nicknameInput.value = displayName(saved);
-    setValidation('');
-    nicknameInput.blur();
+    hideNamePrompt();
     return true;
   }
+
+  // Ask for a name only when Multiplayer is selected. Capture phase prevents
+  // the normal mode handler from opening the lobby before a valid name exists.
+  multiplayerButton?.addEventListener('click', (event) => {
+    if (savedName()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showNamePrompt();
+  }, true);
+
+  globalThis.ensureWebMultiplayerNickname = () => saveNickname({ focusOnError: true });
+
+  nicknameSave?.addEventListener('click', () => {
+    if (!saveNickname({ focusOnError: true })) return;
+    // After saving, the player clicks Multiplayer once more. This avoids
+    // accidentally joining before they have seen and confirmed the name.
+  });
+
+  nicknameInput?.addEventListener('input', () => {
+    panel?.classList.remove('has-error');
+    if (nicknameHint) {
+      nicknameHint.textContent = 'This name appears above your player and on the final score card.';
+    }
+  });
+
+  nicknameInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') saveNickname({ focusOnError: true });
+  });
 
   function realRoomPlayers() {
     const players = Array.isArray(currentRoom?.players) ? currentRoom.players : [];
@@ -78,63 +114,37 @@
       return;
     }
 
-    const scores = new Map(
-      leaderboardEntries
-        .filter(entry => entry?.userId)
-        .map(entry => [entry.userId, Math.max(0, Number(entry.karma) || 0)])
-    );
-
-    const ranked = players
-      .map(player => ({
-        ...player,
-        karma: scores.get(player.userId) || 0,
-      }))
-      .sort((a, b) => b.karma - a.karma || displayName(a.username).localeCompare(displayName(b.username)));
+    const localId = adapter.getIdentity?.()?.userId;
+    const ordered = [...players].sort((a, b) => {
+      if (a.userId === localId) return -1;
+      if (b.userId === localId) return 1;
+      return displayName(a.username).localeCompare(displayName(b.username));
+    });
 
     const fragment = document.createDocumentFragment();
-    for (const player of ranked) {
+    for (const player of ordered) {
       const row = document.createElement('li');
       const name = document.createElement('span');
-      const score = document.createElement('span');
+      const team = document.createElement('span');
       name.className = 'match-player-name';
-      score.className = 'match-player-score';
-      name.textContent = displayName(player.username) || 'Player';
-      score.textContent = `${player.karma} KARMA`;
-      row.append(name, score);
+      team.className = 'match-player-team';
+      name.textContent = `${displayName(player.username) || 'Player'}${player.userId === localId ? ' · YOU' : ''}`;
+      team.textContent = String(player.team || '').toUpperCase() || 'PLAYER';
+      row.append(name, team);
       fragment.appendChild(row);
     }
     matchPlayersList.replaceChildren(fragment);
     matchBoard.classList.remove('hidden');
   }
 
-  globalThis.ensureWebMultiplayerNickname = () => saveNickname({ focusOnError: true });
-
-  nicknameSave?.addEventListener('click', () => saveNickname({ focusOnError: true }));
-  nicknameInput?.addEventListener('input', () => setValidation(''));
-  nicknameInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') saveNickname({ focusOnError: true });
-  });
-  nicknameInput?.addEventListener('change', () => {
-    if (nicknameInput.value.trim()) saveNickname();
-  });
+  hideNamePrompt();
 
   adapter.onRoom?.((room, identity) => {
     currentRoom = room || null;
     if (nicknameInput && document.activeElement !== nicknameInput && identity?.username) {
       nicknameInput.value = displayName(identity.username);
     }
-    panel?.classList.toggle('is-connected', Boolean(room));
     renderMatchPlayersBoard();
-  });
-
-  adapter.onEvent?.((event) => {
-    if (event?.type !== 'leaderboard') return;
-    leaderboardEntries = Array.isArray(event.entries) ? event.entries : [];
-    renderMatchPlayersBoard();
-  });
-
-  adapter.onConnection?.((connected) => {
-    panel?.classList.toggle('is-connected', Boolean(connected));
   });
 
   new MutationObserver(renderMatchPlayersBoard).observe(document.documentElement, {
