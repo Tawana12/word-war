@@ -115,9 +115,11 @@ function resetJoystick() {
   pendingJoystickPoint = null;
   cancelAnimationFrame(joystickMoveFrame);
   joystickMoveFrame = 0;
+  const wasActive = mobileInput.active || Math.hypot(mobileInput.x || 0, mobileInput.y || 0) > 0.01;
   mobileInput.x = 0;
   mobileInput.y = 0;
   mobileInput.active = false;
+  if (wasActive) globalThis.flushMultiplayerInput?.();
 
   if (joystickEl) {
     joystickEl.classList.remove('active');

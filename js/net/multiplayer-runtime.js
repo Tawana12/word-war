@@ -74,6 +74,9 @@
     lobbyTimer: null,
     statsBySlot: Object.create(null),
     localInputHistory: [],
+    latestAcknowledgedInputSequence: 0,
+    lastStopInputSequence: 0,
+    lastLocalAuthoritativeSimTime: -Infinity,
     nextBulletId: 1,
     nextHudRefreshAt: 0,
   };
@@ -207,6 +210,9 @@
     runtime.pendingMotionSnapshot = null;
     runtime.pendingWorldSnapshot = null;
     runtime.localInputHistory.length = 0;
+    runtime.latestAcknowledgedInputSequence = 0;
+    runtime.lastStopInputSequence = 0;
+    runtime.lastLocalAuthoritativeSimTime = -Infinity;
     runtime.nextBulletId = 1;
     runtime.nextHudRefreshAt = 0;
     runtime.lastSnapshotReceivedAt = 0;
@@ -299,10 +305,18 @@
   function transportProfile() {
     const advertised = runtime.room?.transport || {};
     if (multiplayerAdapter.isWebMode?.()) {
+      const debug = globalThis.__wordWarsNetDebug || {};
+      const latency = Number(debug.latencyMs) || 80;
+      const buffered = Number(debug.bufferedAmount) || 0;
+      const congested = latency > 170 || buffered > 10 * 1024;
+
+      // Maximum useful web rates: input can match a 60 Hz display, while motion
+      // snapshots run at 50 Hz when the socket is healthy. Under congestion we
+      // back off automatically instead of creating a stale packet queue.
       return {
-        inputIntervalMs: 25,
-        snapshotIntervalMs: 40,
-        worldIntervalMs: Math.max(950, advertised.worldIntervalMs || 1100),
+        inputIntervalMs: congested ? 24 : 16,
+        snapshotIntervalMs: congested ? 33 : 20,
+        worldIntervalMs: Math.max(1100, advertised.worldIntervalMs || 1250),
       };
     }
     return {
@@ -393,16 +407,28 @@
     runtime.lastSentInput = next;
     runtime.lastInputSentAt = now;
     if (!runtime.isHost) {
+      if (nextMagnitude <= 0.05 && previousMagnitude > 0.05) {
+        runtime.lastStopInputSequence = next.inputSequence;
+      }
       runtime.localInputHistory.push({
         inputSequence: next.inputSequence,
         x: next.x,
         y: next.y,
         sentAt: now,
       });
-      if (runtime.localInputHistory.length > 90) runtime.localInputHistory.splice(0, 30);
+      if (runtime.localInputHistory.length > 120) runtime.localInputHistory.splice(0, 40);
     }
     multiplayerAdapter.sendInput(next);
   }
+
+  // Mobile pointer-up must send the zero vector immediately. Waiting for the
+  // next scheduled input frame lets the host continue the previous direction
+  // and is the main cause of the apparent snap-back after releasing the stick.
+  globalThis.flushMultiplayerInput = function flushMultiplayerInput() {
+    if (!runtime.active || !runtime.started || runtime.isHost || !player) return;
+    runtime.lastInputSentAt = -Infinity;
+    sendLocalInput(performance.now());
+  };
 
   function inputAnimationFrame(now) {
     sendLocalInput(now);
@@ -712,7 +738,11 @@
 
   function acknowledgeLocalInput(sequence) {
     const acknowledged = Number(sequence) || 0;
-    if (!acknowledged || runtime.localInputHistory.length === 0) return;
+    runtime.latestAcknowledgedInputSequence = Math.max(
+      runtime.latestAcknowledgedInputSequence || 0,
+      acknowledged
+    );
+    if (!acknowledged || runtime.localInputHistory.length === 0) return acknowledged;
     let removeCount = 0;
     while (
       removeCount < runtime.localInputHistory.length &&
@@ -721,6 +751,7 @@
       removeCount += 1;
     }
     if (removeCount) runtime.localInputHistory.splice(0, removeCount);
+    return acknowledged;
   }
 
   function pushActorNetworkState(actor, data, receivedAt, sequence) {
@@ -746,7 +777,7 @@
     actor.netSnapshotAt = receivedAt;
   }
 
-  function ingestActorMotion(actor, data, receivedAt, sequence, isLocalActor, isNew = false) {
+  function ingestActorMotion(actor, data, receivedAt, sequence, isLocalActor, isNew = false, snapshotSimTime = -Infinity) {
     const networkX = Number.isFinite(data.x) ? data.x : actor.x;
     const networkY = Number.isFinite(data.y) ? data.y : actor.y;
     const networkVx = Number.isFinite(data.vx) ? data.vx : 0;
@@ -762,28 +793,60 @@
     if (data.inv !== undefined) actor.inv = data.inv ? { ...data.inv } : null;
 
     if (isLocalActor) {
-      acknowledgeLocalInput(data.ackInputSequence ?? data.multiplayerProcessedInputSequence);
+      const acknowledged = acknowledgeLocalInput(
+        data.ackInputSequence ?? data.multiplayerProcessedInputSequence
+      );
+      const authoritativeSimTime = Number(snapshotSimTime);
+      if (
+        Number.isFinite(authoritativeSimTime) &&
+        authoritativeSimTime + 0.0001 < runtime.lastLocalAuthoritativeSimTime
+      ) {
+        return;
+      }
+      if (Number.isFinite(authoritativeSimTime)) {
+        runtime.lastLocalAuthoritativeSimTime = authoritativeSimTime;
+      }
 
-      // The host snapshot is roughly one full round trip behind the local visual
-      // prediction: input travels to the host, then the result travels back.
-      // Project the authoritative position forward by the measured RTT before
-      // comparing it with the local player. This removes the constant backward
-      // pull that made the non-host device feel slow.
+      // The host snapshot is roughly one round trip behind local prediction.
+      // Project forward while moving, but never use a pre-release snapshot to
+      // drag the player backwards after the joystick has returned to zero.
       const rawRttMs = Number(globalThis.__wordWarsNetworkLatencyMs);
-      const rttSeconds = Math.max(0.025, Math.min(0.22,
-        Number.isFinite(rawRttMs) ? rawRttMs / 1000 : 0.08
+      const rttSeconds = Math.max(0.018, Math.min(0.18,
+        Number.isFinite(rawRttMs) ? rawRttMs / 1000 : 0.07
       ));
       const rawInput = currentRawInput();
       const locallyMoving = Math.hypot(rawInput.x, rawInput.y) > 0.05;
+      const latestSentSequence = Number(runtime.lastSentInput?.inputSequence) || 0;
+      const pendingInputCount = Math.max(0, latestSentSequence - acknowledged);
+      const awaitingStopAck = !locallyMoving &&
+        runtime.lastStopInputSequence > 0 &&
+        acknowledged < runtime.lastStopInputSequence;
+
+      if (awaitingStopAck) {
+        actor.netCorrectionX = 0;
+        actor.netCorrectionY = 0;
+        return;
+      }
+
       const projectionSeconds = locallyMoving ? rttSeconds : 0;
       const predictedAuthoritativeX = networkX + networkVx * projectionSeconds;
       const predictedAuthoritativeY = networkY + networkVy * projectionSeconds;
       const errorX = predictedAuthoritativeX - actor.x;
       const errorY = predictedAuthoritativeY - actor.y;
       const distance = Math.hypot(errorX, errorY);
-      if (globalThis.__wordWarsNetDebug) globalThis.__wordWarsNetDebug.reconciliationError = distance;
+      if (globalThis.__wordWarsNetDebug) {
+        globalThis.__wordWarsNetDebug.reconciliationError = distance;
+      }
 
-      const snapDistance = globalThis.__wordWarsTouchUI ? 210 : 180;
+      // Do not fight the player's latest unacknowledged movement. This keeps
+      // controls immediate even when a mobile frame or network packet is late.
+      if (locallyMoving && pendingInputCount > 3 && distance < 150) {
+        actor.netCorrectionX = 0;
+        actor.netCorrectionY = 0;
+        return;
+      }
+
+      const snapDistance = globalThis.__wordWarsTouchUI ? 340 : 300;
       if (isNew || distance > snapDistance) {
         actor.x = predictedAuthoritativeX;
         actor.y = predictedAuthoritativeY;
@@ -794,17 +857,24 @@
         actor.vx = networkVx;
         actor.vy = networkVy;
       } else if (!locallyMoving) {
-        // When the stick/key is released, converge quickly to the true stop
-        // point so collisions and interactions remain authoritative.
-        actor.netCorrectionX = errorX;
-        actor.netCorrectionY = errorY;
-      } else if (distance > 70) {
-        // Correct serious drift while moving, but never fight every local frame.
-        actor.netCorrectionX = errorX * 0.45;
-        actor.netCorrectionY = errorY * 0.45;
-      } else if (distance > 38) {
-        actor.netCorrectionX = errorX * 0.12;
-        actor.netCorrectionY = errorY * 0.12;
+        // Once the host acknowledges the stop, correct only a limited amount.
+        // A stale or unusually delayed packet can no longer return the player
+        // to the position from before the joystick gesture.
+        if (distance <= 2.5) {
+          actor.netCorrectionX = 0;
+          actor.netCorrectionY = 0;
+        } else {
+          const maxReleaseCorrection = 34;
+          const scale = Math.min(1, maxReleaseCorrection / Math.max(distance, 0.001));
+          actor.netCorrectionX = errorX * scale;
+          actor.netCorrectionY = errorY * scale;
+        }
+      } else if (distance > 120) {
+        actor.netCorrectionX = errorX * 0.26;
+        actor.netCorrectionY = errorY * 0.26;
+      } else if (distance > 62) {
+        actor.netCorrectionX = errorX * 0.08;
+        actor.netCorrectionY = errorY * 0.08;
       } else {
         actor.netCorrectionX = 0;
         actor.netCorrectionY = 0;
@@ -883,7 +953,7 @@
       }
       const isLocalActor = data.multiplayerSlotId === runtime.assignment?.slotId;
       actor.isPlayer = isLocalActor;
-      ingestActorMotion(actor, data, receivedAt, snapshot.sequence || 0, isLocalActor, isNew);
+      ingestActorMotion(actor, data, receivedAt, snapshot.sequence || 0, isLocalActor, isNew, snapshot.simTime);
     }
 
     player = actorsBySlot.get(runtime.assignment?.slotId) || player;
@@ -934,7 +1004,7 @@
       actor.inv = data.inv ? { ...data.inv } : null;
       actor.isPlayer = isLocalActor;
       if (isLocalActor) Object.assign(actor, localMotion);
-      ingestActorMotion(actor, data, receivedAt, snapshot.sequence || 0, isLocalActor, isNew);
+      ingestActorMotion(actor, data, receivedAt, snapshot.sequence || 0, isLocalActor, isNew, snapshot.simTime);
       nextActors.push(actor);
     }
 
@@ -992,8 +1062,9 @@
   function updateReplicaVisuals(dt) {
     simTime += dt;
     const now = performance.now();
-    const adaptiveDelay = Math.max(52, Math.min(88, runtime.smoothedSnapshotGapMs * 1.22));
-    const interpolationDelay = adaptiveDelay + (globalThis.__wordWarsTouchUI ? 4 : 0);
+    const jitter = Number(globalThis.__wordWarsNetDebug?.jitterMs) || 0;
+    const adaptiveDelay = Math.max(24, Math.min(52, runtime.smoothedSnapshotGapMs * 0.92 + jitter * 0.35));
+    const interpolationDelay = adaptiveDelay + (globalThis.__wordWarsTouchUI ? 2 : 0);
     const renderAt = now - interpolationDelay;
 
     for (const actor of ACTORS || []) {
@@ -1024,7 +1095,7 @@
         facingY = a.facingY + (b.facingY - a.facingY) * t;
       } else {
         const latest = states[states.length - 1];
-        const extrapolation = Math.min(0.09, Math.max(0, (renderAt - latest.receivedAt) / 1000));
+        const extrapolation = Math.min(0.065, Math.max(0, (renderAt - latest.receivedAt) / 1000));
         x = latest.x + latest.vx * extrapolation;
         y = latest.y + latest.vy * extrapolation;
         vx = latest.vx;
@@ -1334,12 +1405,12 @@
     const correctionDistance = Math.hypot(correctionX, correctionY);
     if (correctionDistance > 0.02) {
       const moving = Math.hypot(x, y) > 0.05;
-      const correctionRate = moving ? 3.2 : 14;
+      const correctionRate = moving ? 2.4 : 8.5;
       const correctionBlend = 1 - Math.exp(-correctionRate * Math.min(dt, 0.05));
       let appliedX = correctionX * correctionBlend;
       let appliedY = correctionY * correctionBlend;
       const appliedLength = Math.hypot(appliedX, appliedY);
-      const maxCorrectionPerTick = moving ? 3.5 : 11;
+      const maxCorrectionPerTick = moving ? 2.6 : 4.8;
       if (appliedLength > maxCorrectionPerTick) {
         appliedX = appliedX / appliedLength * maxCorrectionPerTick;
         appliedY = appliedY / appliedLength * maxCorrectionPerTick;
@@ -1494,6 +1565,9 @@
     runtime.pendingMotionSnapshot = null;
     runtime.pendingWorldSnapshot = null;
     runtime.localInputHistory.length = 0;
+    runtime.latestAcknowledgedInputSequence = 0;
+    runtime.lastStopInputSequence = 0;
+    runtime.lastLocalAuthoritativeSimTime = -Infinity;
     runtime.nextBulletId = 1;
     runtime.nextHudRefreshAt = 0;
     runtime.lastSnapshotReceivedAt = 0;
@@ -1600,6 +1674,9 @@
     runtime.lastMotionSequence = -1;
     runtime.lastWorldSequence = -1;
     runtime.localInputHistory.length = 0;
+    runtime.latestAcknowledgedInputSequence = 0;
+    runtime.lastStopInputSequence = 0;
+    runtime.lastLocalAuthoritativeSimTime = -Infinity;
     runtime.nextBulletId = 1;
     runtime.nextHudRefreshAt = 0;
     runtime.lastSnapshotReceivedAt = 0;

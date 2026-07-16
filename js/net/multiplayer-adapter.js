@@ -481,8 +481,8 @@ class MultiplayerAdapter {
 
     // Never build a long browser-side WebSocket queue. Keep only the latest
     // movement and retry once per rendered frame while the socket drains.
-    if (this.socket.bufferedAmount > 32 * 1024) {
-      this.scheduleLatestFlush(24);
+    if (this.socket.bufferedAmount > 24 * 1024) {
+      this.scheduleLatestFlush(12);
       return;
     }
 
@@ -492,8 +492,8 @@ class MultiplayerAdapter {
     this.pendingLatest.input = null;
     if (input) this.sendRaw({ type: 'relay', kind: 'input', payload: input });
 
-    if (this.socket.bufferedAmount > 24 * 1024) {
-      this.scheduleLatestFlush(24);
+    if (this.socket.bufferedAmount > 16 * 1024) {
+      this.scheduleLatestFlush(12);
       return;
     }
 
@@ -502,14 +502,14 @@ class MultiplayerAdapter {
     if (motion) this.sendRaw({ type: 'relay', kind: 'snapshot', payload: motion });
 
     // World snapshots are larger and lower priority.
-    if (this.socket.bufferedAmount < 16 * 1024) {
+    if (this.socket.bufferedAmount < 10 * 1024) {
       const world = this.pendingLatest.world;
       this.pendingLatest.world = null;
       if (world) this.sendRaw({ type: 'relay', kind: 'snapshot', payload: world });
     }
 
     if (this.pendingLatest.input || this.pendingLatest.motion || this.pendingLatest.world) {
-      this.scheduleLatestFlush(16);
+      this.scheduleLatestFlush(8);
     }
   }
 
