@@ -1,13 +1,16 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content" />
+  <meta name="viewport"
+    content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content" />
   <title>Word Wars</title>
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/ui.css" />
   <link rel="stylesheet" href="css/responsive-shell.css" />
 </head>
+
 <body>
   <main id="wrap">
     <section id="stage" aria-label="Word Wars arena">
@@ -27,7 +30,8 @@
           <div class="web-guest-row">
             <label for="webNicknameInput">PLAYER NAME</label>
             <div class="web-nickname-controls">
-              <input id="webNicknameInput" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Enter your name" aria-label="Player name" />
+              <input id="webNicknameInput" type="text" maxlength="16" autocomplete="nickname" spellcheck="false"
+                placeholder="Enter your name" aria-label="Player name" />
               <button id="webNicknameSave" type="button">SET</button>
             </div>
             <small id="webNicknameHint">Shown in the lobby and above your character.</small>
@@ -62,7 +66,9 @@
         <section id="soloHud" class="solo-hud hidden" aria-label="Word Hunt status">
           <div class="solo-stat solo-health-stat">
             <span>HP</span><strong id="soloHealthText">100</strong>
-            <div class="solo-health-track" aria-hidden="true"><div id="soloHealthFill"></div></div>
+            <div class="solo-health-track" aria-hidden="true">
+              <div id="soloHealthFill"></div>
+            </div>
           </div>
           <strong id="soloWordProgress" class="solo-word-progress">WORD 1/5</strong>
           <strong id="soloCoverStatus" class="solo-cover-status hidden">HIDDEN</strong>
@@ -111,7 +117,8 @@
         <button id="soloBriefingBackBtn" class="overlay-back" type="button">← Modes</button>
         <p class="instruction-role">SOLO WORD HUNT</p>
         <h2>Build. Dodge. Shoot.</h2>
-        <p class="solo-briefing-intro">Walk over tiles to collect them. Rearrange the jumbled letters. Space / FIRE shoots.</p>
+        <p class="solo-briefing-intro">Walk over tiles to collect them. Rearrange the jumbled letters. Space / FIRE
+          shoots.</p>
         <button id="soloStartBtn" class="primary-action" type="button">START</button>
       </div>
 
@@ -119,9 +126,12 @@
         <button id="instructionBackBtn" class="overlay-back" type="button">← Roles</button>
         <p class="instruction-role" id="instructionRole">Runner</p>
         <h2>How to play</h2>
-        <p class="instruction-aim">Collect the scattered tiles and arrange the jumbled letters to reveal your message. Some needed letters are across the white line. First team to win three rounds takes the match.</p>
-        <canvas id="tutorialCanvas" width="760" height="270" aria-label="Animated demonstrations of every role"></canvas>
-        <p class="instruction-job" id="instructionJob">Collect letters and cross the line when a needed tile is on the other side.</p>
+        <p class="instruction-aim">Collect the scattered tiles and arrange the jumbled letters to reveal your message.
+          Some needed letters are across the white line. First team to win three rounds takes the match.</p>
+        <canvas id="tutorialCanvas" width="760" height="270"
+          aria-label="Animated demonstrations of every role"></canvas>
+        <p class="instruction-job" id="instructionJob">Collect letters and cross the line when a needed tile is on the
+          other side.</p>
         <p class="instruction-controls" id="instructionControls">WASD or arrows to move · Space to act</p>
         <button id="startMatchBtn" class="primary-action instruction-start" type="button">START</button>
       </div>
@@ -156,8 +166,10 @@
       </div>
 
       <div id="gameUtilities" class="game-utilities" aria-label="Game controls">
-        <button id="pauseBtn" class="utility-button pause-button" type="button" aria-label="Pause game" title="Pause">Ⅱ</button>
-        <button id="fullscreenBtn" class="utility-button fullscreen-btn" type="button" title="Enter full screen" aria-label="Enter full screen">⛶</button>
+        <button id="pauseBtn" class="utility-button pause-button" type="button" aria-label="Pause game"
+          title="Pause">Ⅱ</button>
+        <button id="fullscreenBtn" class="utility-button fullscreen-btn" type="button" title="Enter full screen"
+          aria-label="Enter full screen">⛶</button>
       </div>
 
       <div id="pauseMenu" class="overlay pause-menu hidden" aria-modal="true" role="dialog">
@@ -238,6 +250,10 @@
   <script src="js/net/multiplayer-runtime.js"></script>
   <script src="js/main.js"></script>
   <script src="js/net/karma-bridge.js"></script>
-    
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </body>
+
 </html>

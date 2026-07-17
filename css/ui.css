@@ -2475,3 +2475,59 @@ html.touch-ui .game-utilities .utility-button {
     font-size: 15px !important;
   }
 }
+/* Desktop gameplay controls */
+@media (min-width: 761px) and (min-height: 521px) {
+
+  #pauseButton,
+  #fullscreenButton,
+  .pause-button,
+  .fullscreen-button,
+  .game-control-button {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 16px !important;
+    transform: none !important;
+    z-index: 40 !important;
+  }
+
+  #pauseButton,
+  .pause-button {
+    left: 16px !important;
+    right: auto !important;
+  }
+
+  #fullscreenButton,
+  .fullscreen-button {
+    right: 16px !important;
+    left: auto !important;
+  }
+
+  #gameCanvas,
+  canvas {
+    display: block;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+  }
+
+  .game-screen,
+  #gameScreen,
+  .arena-screen,
+  #arenaScreen {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+
+  /* Ensure desktop panels are not hidden by mobile rules */
+  .desktop-only,
+  .game-hud,
+  .word-panel,
+  .score-panel {
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
