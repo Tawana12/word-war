@@ -10,6 +10,49 @@
   const WORD_COUNT = DEMO_ROUNDS.length;
   const SOLO_DOCK = Object.freeze({ x: 350, y: 535, w: 300, h: 130 });
   const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const SOLO_HINT_PROFILES = Object.freeze({
+    TEAMWORK: Object.freeze({
+      basic: 'It is something a successful group needs.',
+      meaning: 'It means working together toward a shared goal.',
+      sentence: 'Good ______ helped the group finish the project.',
+    }),
+    KINDNESS: Object.freeze({
+      basic: 'It is a positive quality shown through actions.',
+      meaning: 'It means being friendly, caring and helpful to others.',
+      sentence: 'Her ______ made the new student feel welcome.',
+    }),
+    COMMUNITY: Object.freeze({
+      basic: 'It is about people connected by a place or interest.',
+      meaning: 'It means a group of people who live, work or belong together.',
+      sentence: 'The whole ______ helped clean the neighbourhood.',
+    }),
+    ADVENTURE: Object.freeze({
+      basic: 'It is usually an exciting experience or journey.',
+      meaning: 'It means an unusual and exciting experience.',
+      sentence: 'Their mountain ______ began before sunrise.',
+    }),
+    COMPASSION: Object.freeze({
+      basic: 'It is a caring feeling shown when someone is suffering.',
+      meaning: "It means noticing another person's pain and wanting to help.",
+      sentence: 'She showed ______ by helping the injured child.',
+    }),
+  });
+
+  function buildSoloHintClues(word) {
+    const profile = SOLO_HINT_PROFILES[word] || {
+      basic: 'It is a common word used in everyday English.',
+      meaning: 'Collect more clues to discover what the word means.',
+      sentence: `Complete the sentence with the ${word.length}-letter word: ______.`,
+    };
+
+    return [
+      { id: 'basic', label: 'BASIC', text: profile.basic },
+      { id: 'length', label: 'LENGTH', text: `The word has ${word.length} letters.` },
+      { id: 'start', label: 'START', text: `The word starts with ${word.charAt(0)}.` },
+      { id: 'meaning', label: 'MEANING', text: profile.meaning },
+      { id: 'sentence', label: 'SENTENCE', text: profile.sentence },
+    ];
+  }
   const SOLO_MAZE_WARNING_TIME = 2.1;
   const SOLO_MAZE_OPEN_TIME = 2.0;
   const SOLO_MAZE_PATTERNS = Object.freeze([
@@ -128,6 +171,8 @@
   const soloWordProgressEl = document.querySelector('#soloWordProgress');
   const soloKillsTextEl = document.querySelector('#soloKillsText');
   const soloCoverStatusEl = document.querySelector('#soloCoverStatus');
+  const soloHintPanelEl = document.querySelector('#soloHintPanel');
+  const soloHintListEl = document.querySelector('#soloHintList');
   const upgradeScreenEl = document.querySelector('#soloUpgradeScreen');
   const upgradeChoicesEl = document.querySelector('#soloUpgradeChoices');
   const upgradeSummaryEl = document.querySelector('#soloUpgradeSummary');
@@ -136,6 +181,7 @@
   const soloMines = [];
   const soloSpawnWarnings = [];
   const soloMazeGhostWalls = [];
+  const soloHints = [];
 
   const upgradeDefinitions = Object.freeze([
     {
@@ -273,6 +319,9 @@
       autoPickupCooldown: 0,
       carryCapacity: 1,
       letterCargo: [],
+      activeHint: '',
+      hintsFound: [],
+      hintHudSignature: '',
       mazePhase: 'ACTIVE',
       mazeTimer: 18,
       mazePatternIndex: 0,
@@ -323,6 +372,7 @@
     if (trees.some(tree => Math.hypot(tree.x - x, tree.y - y) < tree.r + radius + 8)) return false;
     if (soloMines.some(mine => Math.hypot(mine.x - x, mine.y - y) < mine.r + radius + 40)) return false;
     if (soloDrops.some(drop => Math.hypot(drop.x - x, drop.y - y) < radius + 44)) return false;
+    if (soloHints.some(hint => Math.hypot(hint.x - x, hint.y - y) < radius + hint.r + 24)) return false;
     if (walls.some(wall => {
       const nearestX = clamp(x, wall.x, wall.x + wall.w);
       const nearestY = clamp(y, wall.y, wall.y + wall.h);
@@ -364,6 +414,7 @@
     if (trees.some(tree => circleTouchesRect(tree, rect, 18))) return false;
     if (soloMines.some(mine => circleTouchesRect(mine, rect, 28))) return false;
     if (soloDrops.some(drop => circleTouchesRect({ ...drop, r: 18 }, rect, 22))) return false;
+    if (soloHints.some(hint => circleTouchesRect(hint, rect, 28))) return false;
     if (items.some(item => circleTouchesRect(item, rect, 24))) return false;
     if ((ACTORS || []).some(actor => actor.alive !== false && circleTouchesRect(actor, rect, 34))) return false;
     return true;
@@ -458,6 +509,9 @@
     soloDrops.push({
       type,
       char: options.char || null,
+      hintId: options.hintId || '',
+      hintLabel: options.hintLabel || 'HINT',
+      hintText: options.hintText || '',
       x: point.x,
       y: point.y,
       delay: Math.max(0, options.delay || 0),
@@ -474,6 +528,19 @@
         y: drop.y,
         r: 16,
         armedAt: simTime + 0.72,
+        phase: Math.random() * Math.PI * 2,
+      });
+      return;
+    }
+
+    if (drop.type === 'hint') {
+      soloHints.push({
+        x: drop.x,
+        y: drop.y,
+        r: 24,
+        id: drop.hintId || `hint-${simTime}-${Math.random()}`,
+        label: drop.hintLabel || 'HINT',
+        text: drop.hintText || 'A useful clue for the current word.',
         phase: Math.random() * Math.PI * 2,
       });
       return;
@@ -567,6 +634,17 @@
     for (let index = 0; index < settings.mines; index++) {
       queueSoloDrop('mine', { delay: 1.2 + index * 0.75 });
     }
+
+    const hints = buildSoloHintClues(word);
+    const hintDelays = [2.2, 4.0, 6.0, 8.4, 11.4];
+    hints.forEach((hint, index) => {
+      queueSoloDrop('hint', {
+        hintId: hint.id,
+        hintLabel: hint.label,
+        hintText: hint.text,
+        delay: hintDelays[index] || 2.2 + index * 2.1,
+      });
+    });
 
     queueSoloDrop('health', { delay: 4.2 });
     queueSoloDrop(state.soloRun.roundIndex >= 2 ? 'carry3' : 'carry2', { delay: 5.4 });
@@ -829,6 +907,27 @@
     if (soloWordProgressEl) {
       soloWordProgressEl.textContent = `WORD ${state.soloRun.roundIndex + 1}/${WORD_COUNT} · CARRY ${soloCargo().length}/${state.soloRun.carryCapacity || 1}`;
     }
+
+    const foundHints = Array.isArray(state.soloRun.hintsFound)
+      ? state.soloRun.hintsFound
+      : [];
+    soloHintPanelEl?.classList.toggle('hidden', foundHints.length === 0);
+    const hintSignature = foundHints.map(hint => `${hint.id}:${hint.text}`).join('|');
+    if (soloHintListEl && hintSignature !== state.soloRun.hintHudSignature) {
+      soloHintListEl.replaceChildren();
+      for (const hint of foundHints) {
+        const line = document.createElement('div');
+        line.className = 'solo-hint-line';
+        const label = document.createElement('strong');
+        label.textContent = `${hint.label}:`;
+        const text = document.createElement('span');
+        text.textContent = hint.text;
+        line.append(label, text);
+        soloHintListEl.append(line);
+      }
+      state.soloRun.hintHudSignature = hintSignature;
+    }
+
     if (soloKillsTextEl) soloKillsTextEl.textContent = `${state.soloRun.kills}`;
     const hiddenInTree = player.coverTreeId != null;
     soloCoverStatusEl?.classList.toggle('hidden', !hiddenInTree);
@@ -935,7 +1034,13 @@
     soloMazeGhostWalls.length = 0;
     soloDrops.length = 0;
     soloMines.length = 0;
+    soloHints.length = 0;
     soloSpawnWarnings.length = 0;
+    run.activeHint = '';
+    run.hintsFound = [];
+    run.hintHudSignature = '';
+    soloHintListEl?.replaceChildren();
+    soloHintPanelEl?.classList.add('hidden');
 
     for (const hunter of [...bots]) {
       if (hunter.soloShooter) removeSoloHunter(hunter);
@@ -1095,6 +1200,30 @@
     if (['carry2', 'carry3'].includes(item.type)) return applyCarryPowerup(actor, item);
     const temporaryRole = item.type === 'gun' ? 'DEFENDER' : 'OPERATOR';
     return withTemporaryRole(actor, temporaryRole, () => pickup(actor, item));
+  }
+
+  function collectTouchedSoloHint() {
+    const run = state.soloRun;
+    if (!run || !player || player.alive === false) return false;
+
+    const index = soloHints.findIndex(hint =>
+      Math.hypot(player.x - hint.x, player.y - hint.y) <= player.r + hint.r + 8
+    );
+    if (index < 0) return false;
+
+    const [hint] = soloHints.splice(index, 1);
+    const clue = {
+      id: hint.id || `hint-${run.hintsFound.length}`,
+      label: hint.label || 'HINT',
+      text: hint.text || 'A useful clue for the current word.',
+    };
+    run.activeHint = clue.text;
+    if (!run.hintsFound.some(found => found.id === clue.id)) {
+      run.hintsFound.push(clue);
+      run.hintHudSignature = '';
+    }
+    msg(`${clue.label}: ${clue.text}`);
+    return true;
   }
 
   function collectTouchedSoloItem() {
@@ -1392,6 +1521,36 @@
     }
   }
 
+  function drawSoloHints() {
+    if (!soloActive()) return;
+    for (const hint of soloHints) {
+      const pulse = 1 + Math.sin(simTime * 4 + hint.phase) * 0.035;
+      const cardLabel = hint.label || 'HINT';
+      const width = clamp(54 + cardLabel.length * 7, 82, 132);
+      ctx.save();
+      ctx.translate(hint.x, hint.y);
+      ctx.scale(pulse, pulse);
+      ctx.fillStyle = 'rgba(79, 211, 190, 0.16)';
+      ctx.fillRect(-width / 2 - 5, -22, width + 10, 44);
+      ctx.strokeStyle = 'rgba(112, 239, 218, 0.75)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-width / 2 - 5, -22, width + 10, 44);
+      ctx.fillStyle = '#173c38';
+      ctx.fillRect(-width / 2, -17, width, 34);
+      ctx.strokeStyle = '#70efda';
+      ctx.strokeRect(-width / 2, -17, width, 34);
+      ctx.fillStyle = '#a8fff1';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('HINT', 0, -7);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(cardLabel, 0, 7);
+      ctx.restore();
+    }
+  }
+
   function drawSoloDrops() {
     if (!soloActive()) return;
     for (const drop of soloDrops) {
@@ -1405,7 +1564,8 @@
           : drop.type === 'speed' ? '#60c9ff'
             : drop.type === 'gun' ? '#b7c7dd'
               : ['carry2', 'carry3'].includes(drop.type) ? '#d99cff'
-                : '#f4d06f';
+                : drop.type === 'hint' ? '#70efda'
+                  : '#f4d06f';
 
       ctx.save();
       ctx.globalAlpha = 0.22 + progress * 0.52;
@@ -1434,6 +1594,21 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(drop.char || '?', 0, 1);
+      } else if (drop.type === 'hint') {
+        const cardLabel = drop.hintLabel || 'HINT';
+        const width = clamp(54 + cardLabel.length * 7, 82, 132);
+        ctx.fillStyle = '#173c38';
+        ctx.fillRect(-width / 2, -17, width, 34);
+        ctx.strokeStyle = '#70efda';
+        ctx.strokeRect(-width / 2, -17, width, 34);
+        ctx.fillStyle = '#a8fff1';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('HINT', 0, -7);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(cardLabel, 0, 7);
       } else {
         ctx.beginPath();
         ctx.arc(0, 0, 13, 0, Math.PI * 2);
@@ -1480,6 +1655,7 @@
         ctx.fillText(item.type === 'carry3' ? '+3' : '+2', item.x, item.y);
         ctx.restore();
       }
+      drawSoloHints();
       drawSoloDrops();
     }
   };
@@ -1547,6 +1723,7 @@
     updateSoloMines(dt);
     updateSoloMaze(dt);
     updateSpawnWarnings(dt);
+    collectTouchedSoloHint();
     collectTouchedSoloItem();
 
     if (run.hunterTimer <= 0 && activeHunters().length < settings.hunterCap) {
@@ -1587,11 +1764,14 @@
     state.soloRun = null;
     soloDrops.length = 0;
     soloMines.length = 0;
+    soloHints.length = 0;
     soloSpawnWarnings.length = 0;
     soloMazeGhostWalls.length = 0;
     removeSoloMazeWalls();
     soloHudEl?.classList.add('hidden');
     soloCoverStatusEl?.classList.add('hidden');
+    soloHintPanelEl?.classList.add('hidden');
+    soloHintListEl?.replaceChildren();
     upgradeScreenEl?.classList.add('hidden');
     document.documentElement.classList.remove('solo-running');
     const blueLabel = document.querySelector('.team.blue .label');

@@ -1323,6 +1323,48 @@ html.game-started .game-utilities {
   background: #ef5e5e;
 }
 
+.solo-hint-panel {
+  grid-column: 1 / -1;
+  width: min(350px, 42vw);
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid #39414b;
+}
+
+.solo-hint-panel.hidden {
+  display: none !important;
+}
+
+.solo-hint-heading {
+  color: #70efda;
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .8px;
+}
+
+.solo-hint-list {
+  display: grid;
+  gap: 3px;
+}
+
+.solo-hint-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  color: #e9eef3;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.28;
+}
+
+.solo-hint-line strong {
+  flex: 0 0 auto;
+  color: #a8fff1;
+  font-size: inherit;
+  letter-spacing: .35px;
+}
+
 .solo-word-progress {
   color: #f1ca5c;
   font-size: 9px;
@@ -1469,6 +1511,21 @@ html.solo-running #wrap {
     font-size: 9px;
   }
 
+  html.touch-ui .solo-hint-panel {
+    width: min(250px, 46vw);
+    gap: 2px;
+    padding-top: 4px;
+  }
+
+  html.touch-ui .solo-hint-heading,
+  html.touch-ui .solo-hint-line {
+    font-size: 7px;
+  }
+
+  html.touch-ui .solo-hint-list {
+    gap: 2px;
+  }
+
   html.touch-ui.solo-running .team.blue {
     top: max(7px, env(safe-area-inset-top));
     left: max(7px, env(safe-area-inset-left));
@@ -1589,6 +1646,15 @@ html.solo-running #wrap {
   html.touch-ui.solo-running .solo-hud {
     min-width: 178px;
     right: max(7px, env(safe-area-inset-right));
+  }
+
+  html.touch-ui.solo-running .solo-hint-panel {
+    width: min(225px, 43vw);
+  }
+
+  html.touch-ui.solo-running .solo-hint-line {
+    font-size: 6.5px;
+    line-height: 1.18;
   }
 
   html.touch-ui.solo-running .game-utilities {
