@@ -2475,59 +2475,57 @@ html.touch-ui .game-utilities .utility-button {
     font-size: 15px !important;
   }
 }
-/* Desktop gameplay controls */
+/* Safe desktop gameplay layout */
 @media (min-width: 761px) and (min-height: 521px) {
 
-  #pauseButton,
-  #fullscreenButton,
-  .pause-button,
-  .fullscreen-button,
-  .game-control-button {
-    position: fixed !important;
-    top: auto !important;
-    bottom: 16px !important;
-    transform: none !important;
-    z-index: 40 !important;
-  }
-
-  #pauseButton,
-  .pause-button {
-    left: 16px !important;
-    right: auto !important;
-  }
-
-  #fullscreenButton,
-  .fullscreen-button {
-    right: 16px !important;
-    left: auto !important;
-  }
-
-  #gameCanvas,
-  canvas {
+  /* Keep the actual game canvas inside its normal stage. */
+  #gameCanvas {
     display: block;
-    width: 100vw !important;
-    height: 100vh !important;
-    max-width: none !important;
-    max-height: none !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
   }
 
-  .game-screen,
-  #gameScreen,
-  .arena-screen,
-  #arenaScreen {
-    position: fixed !important;
-    inset: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    overflow: hidden !important;
+  /* Menus must remain above the game canvas and receive clicks. */
+  .overlay,
+  .landing-screen,
+  .role-screen,
+  .instruction-screen,
+  .result-screen,
+  .pause-menu,
+  .multiplayer-lobby-screen {
+    z-index: 300 !important;
+    pointer-events: auto !important;
   }
 
-  /* Ensure desktop panels are not hidden by mobile rules */
-  .desktop-only,
-  .game-hud,
-  .word-panel,
-  .score-panel {
-    visibility: visible !important;
-    opacity: 1 !important;
+  /* The inactive game canvas must never block menu buttons. */
+  html:not(.game-started) #gameCanvas,
+  html:not(.game-started) #stage {
+    pointer-events: none !important;
+  }
+
+  html.game-started #gameCanvas,
+  html.game-started #stage {
+    pointer-events: auto;
+  }
+
+  /* Keep pause/fullscreen in one small desktop control group. */
+  .game-utilities {
+    position: absolute !important;
+    top: auto !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    left: auto !important;
+    transform: none !important;
+    z-index: 220 !important;
+  }
+
+  .game-utilities .pause-button,
+  .game-utilities .fullscreen-btn,
+  .game-utilities .utility-button {
+    position: static !important;
+    width: 34px !important;
+    height: 34px !important;
   }
 }
