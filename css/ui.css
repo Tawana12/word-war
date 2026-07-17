@@ -2712,16 +2712,30 @@ html.solo-running .team.blue {
 
 .solo-intro-overlay.show-target {
   place-items: end start;
-  background:
-    radial-gradient(
-      ellipse 185px 92px at calc(100% - 155px) 53px,
-      transparent 0 62%,
-      rgba(8, 11, 15, .18) 67%,
-      rgba(8, 11, 15, .86) 100%
-    );
+  background: transparent;
+}
+
+.solo-intro-spotlight {
+  display: none;
+  position: absolute;
+  z-index: 1;
+  border: 3px solid #f1ca5c;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow:
+    0 0 0 200vmax rgba(8, 11, 15, .86),
+    0 0 0 7px rgba(241, 202, 92, .16),
+    0 0 34px rgba(241, 202, 92, .9);
+  pointer-events: none;
+}
+
+.solo-intro-overlay.show-target .solo-intro-spotlight {
+  display: block;
 }
 
 .solo-intro-card {
+  position: relative;
+  z-index: 4;
   width: min(520px, calc(100% - 20px));
   display: grid;
   justify-items: center;
@@ -2792,7 +2806,7 @@ html.solo-running .team.blue {
   position: absolute;
   top: 103px;
   right: 78px;
-  z-index: 2;
+  z-index: 3;
   align-items: center;
   gap: 9px;
   color: #fff2b6;
@@ -2910,13 +2924,7 @@ html.solo-intro-open .game-utilities {
   }
 
   .solo-intro-overlay.show-target {
-    background:
-      radial-gradient(
-        ellipse 155px 76px at calc(100% - max(150px, 19vw)) max(43px, calc(env(safe-area-inset-top) + 36px)),
-        transparent 0 62%,
-        rgba(8, 11, 15, .18) 67%,
-        rgba(8, 11, 15, .88) 100%
-      );
+    background: transparent;
   }
 }
 
@@ -2936,7 +2944,7 @@ html.solo-intro-open .game-utilities {
 
   .solo-intro-overlay.show-target {
     place-items: end center;
-    background: rgba(8, 11, 15, .82);
+    background: transparent;
   }
 
   .solo-intro-overlay.show-target .solo-intro-card {
@@ -2947,5 +2955,120 @@ html.solo-intro-open .game-utilities {
   .solo-intro-pointer {
     top: calc(max(7px, env(safe-area-inset-top)) + 137px);
     right: 25px;
+  }
+}
+
+
+/* Larger first-run/menu typography -------------------------------------
+   Keep primary choices readable in embedded mobile views, with extra
+   breathing room in portrait where the previous labels were undersized. */
+html.touch-ui .mode-actions button,
+html.touch-ui .solo-intro-next {
+  font-size: clamp(16px, 3.5vw, 19px) !important;
+  line-height: 1.15 !important;
+}
+
+html.touch-ui .solo-intro-kicker {
+  font-size: clamp(11px, 2.4vw, 13px) !important;
+}
+
+html.touch-ui .solo-intro-card p:not(.solo-intro-kicker) {
+  font-size: clamp(15px, 3vw, 19px) !important;
+  line-height: 1.5 !important;
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  html.touch-ui .landing-screen .tagline {
+    font-size: clamp(17px, 4.6vw, 21px) !important;
+    margin-bottom: 16px !important;
+  }
+
+  html.touch-ui .mode-actions {
+    gap: 13px !important;
+  }
+
+  html.touch-ui .mode-actions button {
+    min-height: 60px !important;
+    padding: 15px 18px !important;
+    font-size: clamp(18px, 5vw, 21px) !important;
+  }
+
+  html.touch-ui .match-meta,
+  html.touch-ui #modeStatus {
+    font-size: clamp(11px, 3vw, 13px) !important;
+  }
+
+  html.touch-ui .solo-intro-overlay {
+    padding: max(18px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+      max(18px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  }
+
+  html.touch-ui .solo-intro-card,
+  html.touch-ui .solo-intro-overlay.show-target .solo-intro-card {
+    width: min(460px, calc(100% - 8px));
+    gap: 13px;
+    padding: clamp(24px, 6vw, 34px) clamp(20px, 5vw, 30px);
+    border-radius: 16px;
+  }
+
+  html.touch-ui .solo-intro-card h2 {
+    font-size: clamp(32px, 9vw, 46px) !important;
+    line-height: 1.05;
+  }
+
+  html.touch-ui .solo-intro-card p:not(.solo-intro-kicker) {
+    font-size: clamp(18px, 4.8vw, 22px) !important;
+    line-height: 1.48 !important;
+  }
+
+  html.touch-ui .solo-intro-next {
+    min-width: min(260px, 90%);
+    min-height: 60px;
+    padding: 15px 24px;
+    font-size: clamp(19px, 5vw, 22px) !important;
+  }
+
+  html.touch-ui .solo-intro-dots {
+    gap: 10px;
+    margin: 7px 0 4px;
+  }
+
+  html.touch-ui .solo-intro-dots span {
+    width: 10px;
+    height: 10px;
+  }
+
+  html.touch-ui .solo-intro-dots span.active {
+    width: 30px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  html.touch-ui .solo-briefing-screen h2,
+  html.touch-ui .pause-menu h2,
+  html.touch-ui .result-screen h2,
+  html.touch-ui .solo-upgrade-screen h2 {
+    font-size: clamp(30px, 8vw, 42px) !important;
+  }
+
+  html.touch-ui .solo-briefing-intro,
+  html.touch-ui .solo-briefing-screen p,
+  html.touch-ui .result-screen p {
+    font-size: clamp(16px, 4.2vw, 20px) !important;
+    line-height: 1.45 !important;
+  }
+
+  html.touch-ui #soloStartBtn,
+  html.touch-ui .pause-actions button,
+  html.touch-ui .result-screen button,
+  html.touch-ui .solo-upgrade-screen button {
+    min-height: 56px !important;
+    font-size: clamp(17px, 4.5vw, 20px) !important;
+  }
+
+  html.touch-ui .overlay-back {
+    min-height: 42px !important;
+    padding: 9px 13px !important;
+    font-size: clamp(14px, 3.7vw, 17px) !important;
   }
 }

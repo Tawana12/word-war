@@ -177,6 +177,7 @@
   const soloHintToastLabelEl = document.querySelector('#soloHintToastLabel');
   const soloHintToastTextEl = document.querySelector('#soloHintToastText');
   const soloIntroOverlayEl = document.querySelector('#soloIntroOverlay');
+  const soloIntroSpotlightEl = document.querySelector('#soloIntroSpotlight');
   const soloIntroKickerEl = document.querySelector('#soloIntroKicker');
   const soloIntroTitleEl = document.querySelector('#soloIntroTitle');
   const soloIntroTextEl = document.querySelector('#soloIntroText');
@@ -232,6 +233,33 @@
     globalThis.setInnerSentryFireHeld?.(false);
   }
 
+  function updateSoloIntroSpotlight() {
+    if (
+      !soloIntroOverlayEl ||
+      !soloIntroSpotlightEl ||
+      !soloTargetPanelEl ||
+      !soloIntroOverlayEl.classList.contains('show-target') ||
+      soloIntroOverlayEl.classList.contains('hidden')
+    ) return;
+
+    const stageEl = document.querySelector('#stage');
+    if (!stageEl) return;
+
+    const stageRect = stageEl.getBoundingClientRect();
+    const targetRect = soloTargetPanelEl.getBoundingClientRect();
+    // Leave extra room for the gentle zoom animation and its glow.
+    const pad = Math.max(12, Math.min(22, stageRect.width * 0.018));
+    const left = Math.max(4, targetRect.left - stageRect.left - pad);
+    const top = Math.max(4, targetRect.top - stageRect.top - pad);
+    const right = Math.min(stageRect.width - 4, targetRect.right - stageRect.left + pad);
+    const bottom = Math.min(stageRect.height - 4, targetRect.bottom - stageRect.top + pad);
+
+    soloIntroSpotlightEl.style.left = `${left}px`;
+    soloIntroSpotlightEl.style.top = `${top}px`;
+    soloIntroSpotlightEl.style.width = `${Math.max(1, right - left)}px`;
+    soloIntroSpotlightEl.style.height = `${Math.max(1, bottom - top)}px`;
+  }
+
   function renderSoloIntroStep() {
     const step = SOLO_INTRO_STEPS[soloIntroStep] || SOLO_INTRO_STEPS[0];
     if (soloIntroKickerEl) soloIntroKickerEl.textContent = step.kicker;
@@ -241,6 +269,7 @@
 
     soloIntroOverlayEl?.classList.toggle('show-target', step.target);
     soloTargetPanelEl?.classList.toggle('solo-intro-target-zoom', step.target);
+    if (step.target) requestAnimationFrame(updateSoloIntroSpotlight);
 
     const dots = soloIntroDotsEl?.querySelectorAll('span') || [];
     dots.forEach((dot, index) => dot.classList.toggle('active', index === soloIntroStep));
@@ -287,6 +316,11 @@
     globalThis.playGameSound?.('uiClick');
     closeSoloIntro();
   });
+
+  const refreshSoloIntroSpotlight = () => requestAnimationFrame(updateSoloIntroSpotlight);
+  window.addEventListener('resize', refreshSoloIntroSpotlight, { passive: true });
+  window.addEventListener('orientationchange', refreshSoloIntroSpotlight, { passive: true });
+  globalThis.visualViewport?.addEventListener('resize', refreshSoloIntroSpotlight, { passive: true });
 
   function clearSoloHintToast() {
     if (soloHintToastTimer) {
