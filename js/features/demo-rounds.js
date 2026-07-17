@@ -484,7 +484,12 @@ winner = function demoRoundWinner() {
 
 resultButtonEl?.addEventListener('click', () => {
   if (state.demoMatch.finished) {
-    globalThis.returnToMainMenu?.();
+    if (selectedSessionMode === SESSION_MODES.SOLO) {
+      roundScreenEl?.classList.add('hidden');
+      globalThis.initializeSoloRun?.();
+    } else {
+      globalThis.returnToMainMenu?.();
+    }
     return;
   }
   startDemoRound(state.demoMatch.roundIndex + 1, {

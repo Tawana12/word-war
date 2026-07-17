@@ -53,6 +53,7 @@ restartRoundBtnEl?.addEventListener('click', () => {
 
 restartMatchBtnEl?.addEventListener('click', () => {
   closePauseMenu(false);
+  pauseMenuEl?.classList.add('hidden');
   if (selectedSessionMode === SESSION_MODES.SOLO) {
     globalThis.initializeSoloRun?.();
   } else {

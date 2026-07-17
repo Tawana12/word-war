@@ -1080,9 +1080,12 @@ drawActors = function combatDrawActors(alpha = 1) {
 };
 
 function drawPlayerSentryAim(alpha = 1) {
+  const soloLetterCargo = Boolean(
+    globalThis.isSoloFieldRunActive?.() && player?.inv?.type === 'letter'
+  );
   if (!player || player.alive === false || state.over ||
     typeof isInnerSentry !== 'function' ||
-    !isInnerSentry(player) || player.inv ||
+    !isInnerSentry(player) || (player.inv && !soloLetterCargo) ||
     !insideRect(player, BASES[player.team])) return;
 
   const aim = sentryAimVector(player);

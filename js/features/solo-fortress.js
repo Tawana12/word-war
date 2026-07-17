@@ -206,6 +206,48 @@
     return ROUND_SETTINGS[index];
   }
 
+  function soloCargo() {
+    const run = state.soloRun;
+    if (!run) return [];
+    run.letterCargo = Array.isArray(run.letterCargo) ? run.letterCargo : [];
+    return run.letterCargo;
+  }
+
+  function syncSoloCargoInventory(actor = player) {
+    if (!actor || !state.soloRun) return;
+    const cargo = soloCargo();
+    actor.inv = cargo.length
+      ? { type: 'letter', char: cargo[0], ignited: false, timer: 0 }
+      : null;
+  }
+
+  function soloCargoHasRoom() {
+    const run = state.soloRun;
+    return Boolean(run && soloCargo().length < Math.max(1, run.carryCapacity || 1));
+  }
+
+  function collectSoloLetter(actor, item) {
+    if (!actor || !item || item.type !== 'letter' || !soloCargoHasRoom()) return false;
+    soloCargo().push(item.char);
+    clearReservation(actor);
+    removeItem(item);
+    syncSoloCargoInventory(actor);
+    if (actor.isPlayer) {
+      msg(`Picked up ${item.char} · ${soloCargo().length}/${state.soloRun.carryCapacity} letters`);
+    }
+    return true;
+  }
+
+  function applyCarryPowerup(actor, item) {
+    if (!actor || !item || !['carry2', 'carry3'].includes(item.type)) return false;
+    const capacity = item.type === 'carry3' ? 3 : 2;
+    state.soloRun.carryCapacity = Math.max(state.soloRun.carryCapacity || 1, capacity);
+    clearReservation(actor);
+    removeItem(item);
+    msg(`+${capacity} CARRY active · hold up to ${capacity} letters and keep firing.`);
+    return true;
+  }
+
   function createSoloState() {
     return {
       active: true,
@@ -229,6 +271,8 @@
       criticalLetterTimer: 4,
       wordStartedAt: 0,
       autoPickupCooldown: 0,
+      carryCapacity: 1,
+      letterCargo: [],
       mazePhase: 'ACTIVE',
       mazeTimer: 18,
       mazePatternIndex: 0,
@@ -461,7 +505,7 @@
   }
 
   function neededLetterStillInPlay(char) {
-    if (player?.inv?.type === 'letter' && player.inv.char === char) return true;
+    if (soloCargo().includes(char)) return true;
     if (items.some(item => item.type === 'letter' && item.char === char)) return true;
     if (soloDrops.some(drop => drop.type === 'letter' && drop.char === char)) return true;
     return false;
@@ -525,6 +569,7 @@
     }
 
     queueSoloDrop('health', { delay: 4.2 });
+    queueSoloDrop(state.soloRun.roundIndex >= 2 ? 'carry3' : 'carry2', { delay: 5.4 });
     if (state.soloRun.roundIndex >= 1) queueSoloDrop('speed', { delay: 6.2 });
     if (state.soloRun.roundIndex >= 2) queueSoloDrop('gun', { delay: 8.0 });
   }
@@ -547,8 +592,12 @@
       queueSoloDrop('speed');
       return;
     }
-    if (roll < 0.90) {
+    if (roll < 0.86) {
       queueSoloDrop('health');
+      return;
+    }
+    if (roll < 0.94) {
+      queueSoloDrop(Math.random() < 0.55 ? 'carry2' : 'carry3');
       return;
     }
     queueSoloDrop('gun');
@@ -778,7 +827,7 @@
       soloHealthFillEl.classList.toggle('danger', healthRatio <= 0.28);
     }
     if (soloWordProgressEl) {
-      soloWordProgressEl.textContent = `WORD ${state.soloRun.roundIndex + 1}/${WORD_COUNT}`;
+      soloWordProgressEl.textContent = `WORD ${state.soloRun.roundIndex + 1}/${WORD_COUNT} · CARRY ${soloCargo().length}/${state.soloRun.carryCapacity || 1}`;
     }
     if (soloKillsTextEl) soloKillsTextEl.textContent = `${state.soloRun.kills}`;
     const hiddenInTree = player.coverTreeId != null;
@@ -839,6 +888,8 @@
     player.prevY = player.y;
     player.facingX = 0;
     player.facingY = -1;
+    state.soloRun.letterCargo = [];
+    syncSoloCargoInventory(player);
   }
 
   function startSoloWord(index = 0) {
@@ -897,7 +948,10 @@
     scheduleOpeningField();
 
     state.over = false;
-    document.documentElement.classList.remove('round-ended');
+    state.paused = false;
+    document.documentElement.classList.remove('round-ended', 'game-paused');
+    document.querySelector('#pauseMenu')?.classList.add('hidden');
+    document.querySelector('#pauseBtn')?.setAttribute('aria-expanded', 'false');
     roundScreenEl?.classList.add('hidden');
     upgradeScreenEl?.classList.add('hidden');
     if (hudLayer) hudLayer.style.display = 'block';
@@ -935,7 +989,7 @@
     if (resultTitleEl) resultTitleEl.textContent = success ? 'RUN CLEARED' : 'RUN ENDED';
     if (resultTextEl) resultTextEl.textContent = reason;
     nextRolePreviewEl?.classList.add('hidden');
-    if (resultButtonEl) resultButtonEl.textContent = 'MAIN MENU';
+    if (resultButtonEl) resultButtonEl.textContent = 'PLAY AGAIN';
     roundScreenEl?.classList.remove('hidden');
   }
 
@@ -1009,17 +1063,22 @@
   ROLE_RULES.CAPTAIN = {
     job: 'Find the word before the field takes you down',
     summary: 'Letters · pistol · health · speed',
-    allowed: ['letter', 'health', 'speed', 'gun'],
+    allowed: ['letter', 'health', 'speed', 'gun', 'carry2', 'carry3'],
   };
 
   const baseCanActorCollectItem = canActorCollectItem;
   canActorCollectItem = function soloCaptainCanCollect(actor, item) {
     if (soloActive() && actor?.isPlayer && publicRoleOf(actor) === 'CAPTAIN') {
       if (!item || actor.alive === false) return false;
+      if (item.type === 'letter') return soloCargoHasRoom();
+      if (['carry2', 'carry3'].includes(item.type)) {
+        const offered = item.type === 'carry3' ? 3 : 2;
+        return offered > (state.soloRun.carryCapacity || 1);
+      }
       if (actor.inv && !globalThis.isInstantPowerupItem?.(item)) return false;
       if (item.type === 'health') return actor.health < actor.maxHealth;
       if (item.type === 'gun') return actor.weaponTier < 2 || actor.gunAmmo < CONFIG.RIFLE_AMMO;
-      return ['letter', 'health', 'speed', 'gun'].includes(item.type);
+      return ['health', 'speed', 'gun'].includes(item.type);
     }
     return baseCanActorCollectItem(actor, item);
   };
@@ -1032,6 +1091,8 @@
 
   function pickupSoloItem(actor, item) {
     if (!actor || !item) return false;
+    if (item.type === 'letter') return collectSoloLetter(actor, item);
+    if (['carry2', 'carry3'].includes(item.type)) return applyCarryPowerup(actor, item);
     const temporaryRole = item.type === 'gun' ? 'DEFENDER' : 'OPERATOR';
     return withTemporaryRole(actor, temporaryRole, () => pickup(actor, item));
   }
@@ -1045,7 +1106,7 @@
       .filter(item =>
         isItemVisible(item) &&
         canActorCollectItem(player, item) &&
-        (!player.inv || globalThis.isInstantPowerupItem?.(item)) &&
+        (!player.inv || item.type === 'letter' || ['carry2', 'carry3'].includes(item.type) || globalThis.isInstantPowerupItem?.(item)) &&
         !isRecentlyDropped(player, item)
       )
       .map(item => ({ item, distance: dist(player, item) }))
@@ -1162,7 +1223,7 @@
       return baseGetContextTarget();
     }
 
-    if (player.inv?.type === 'letter') {
+    if (soloCargo().length) {
       const slot = slotFromHorizontalPosition(player, 'blue');
       if (slot) {
         return {
@@ -1170,25 +1231,23 @@
           slot,
           team: 'blue',
           allowed: true,
-          text: `Place ${player.inv.char}`,
+          text: `Place ${soloCargo()[0]} · ${soloCargo().length} carried`,
         };
       }
     }
 
-    if (!player.inv) {
-      const item = preferredActionItem(player, candidate =>
-        isItemVisible(candidate) &&
-        canActorCollectItem(player, candidate) &&
-        !isRecentlyDropped(player, candidate)
-      );
-      if (item) {
-        return {
-          kind: 'item',
-          item,
-          allowed: true,
-          text: `Pick ${getItemDisplayName(item)}`,
-        };
-      }
+    const item = preferredActionItem(player, candidate =>
+      isItemVisible(candidate) &&
+      canActorCollectItem(player, candidate) &&
+      !isRecentlyDropped(player, candidate)
+    );
+    if (item) {
+      return {
+        kind: 'item',
+        item,
+        allowed: true,
+        text: `Pick ${['carry2','carry3'].includes(item.type) ? '+' + (item.type === 'carry3' ? '3' : '2') : getItemDisplayName(item)}`,
+      };
     }
 
     const target = directionalDefenderTarget(player);
@@ -1201,11 +1260,11 @@
       };
     }
 
-    if (player.inv?.type === 'letter') {
+    if (soloCargo().length) {
       return {
         kind: 'drop',
         allowed: true,
-        text: `Drop ${player.inv.char}`,
+        text: `Drop ${soloCargo()[0]}`,
       };
     }
 
@@ -1223,9 +1282,23 @@
     }
     if (state.over || actor.alive === false) return;
 
-    if (actor.inv?.type === 'letter') {
+    const nearbyItem = preferredActionItem(actor, item =>
+      isItemVisible(item) && canActorCollectItem(actor, item)
+    );
+    if (nearbyItem && pickupSoloItem(actor, nearbyItem)) return;
+
+    if (soloCargo().length) {
+      syncSoloCargoInventory(actor);
       const slot = slotFromHorizontalPosition(actor, 'blue');
-      if (slot && withTemporaryRole(actor, 'OPERATOR', () => deposit(actor))) return;
+      if (slot) {
+        const placed = withTemporaryRole(actor, 'OPERATOR', () => deposit(actor));
+        if (placed) {
+          if (actor.inv?.type === 'letter') soloCargo()[0] = actor.inv.char;
+          else soloCargo().shift();
+          syncSoloCargoInventory(actor);
+          return;
+        }
+      }
 
       const target = directionalDefenderTarget(actor);
       if (target) {
@@ -1233,27 +1306,33 @@
         return;
       }
 
-      // Away from the word dock and without a Hunter in the aim direction,
-      // the same action button deliberately drops the carried tile.
-      armOrDrop(actor);
-      if (state.soloRun) {
-        state.soloRun.autoPickupCooldown = Math.max(
-          state.soloRun.autoPickupCooldown || 0,
-          CONFIG.DROP_REJECT_GRACE
-        );
-      }
-      if (actor.isPlayer) msg('Tile dropped.');
+      const dropped = soloCargo().shift();
+      syncSoloCargoInventory(actor);
+      items.push({
+        type: 'letter', char: dropped,
+        x: clamp(actor.x + Math.cos(simTime * 10) * CONFIG.DROP_ITEM_OFFSET, 20, CONFIG.W - 20),
+        y: clamp(actor.y + Math.sin(simTime * 10) * CONFIG.DROP_ITEM_OFFSET, 20, CONFIG.H - 20),
+        r: CONFIG.ITEM_RADIUS_LETTER,
+        ignited: false, timer: 0, droppedBy: actor, dropTime: simTime,
+        hiddenByTree: null, revealed: true, revealTime: 0,
+      });
+      state.soloRun.autoPickupCooldown = Math.max(
+        state.soloRun.autoPickupCooldown || 0,
+        CONFIG.DROP_REJECT_GRACE
+      );
+      msg(`Tile ${dropped} dropped · ${soloCargo().length}/${state.soloRun.carryCapacity} carried`);
       return;
     }
 
-    const nearbyItem = preferredActionItem(actor, item =>
-      isItemVisible(item) && canActorCollectItem(actor, item)
-    );
-    if (nearbyItem && pickupSoloItem(actor, nearbyItem)) return;
-
     const selectedSlot = slotFromHorizontalPosition(actor, 'blue');
-    if (selectedSlot && getProgress('blue')[selectedSlot.index]) {
-      if (withTemporaryRole(actor, 'OPERATOR', () => takeSlottedLetter(actor))) return;
+    if (selectedSlot && getProgress('blue')[selectedSlot.index] && soloCargoHasRoom()) {
+      const char = getProgress('blue')[selectedSlot.index];
+      getProgress('blue')[selectedSlot.index] = null;
+      soloCargo().push(char);
+      syncSoloCargoInventory(actor);
+      addSlotEffect('blue', selectedSlot.index, '#53d8fb');
+      msg(`Picked '${char}' up · ${soloCargo().length}/${state.soloRun.carryCapacity} letters`);
+      return;
     }
 
     const target = directionalDefenderTarget(actor);
@@ -1325,7 +1404,8 @@
         : drop.type === 'health' ? '#55d47b'
           : drop.type === 'speed' ? '#60c9ff'
             : drop.type === 'gun' ? '#b7c7dd'
-              : '#f4d06f';
+              : ['carry2', 'carry3'].includes(drop.type) ? '#d99cff'
+                : '#f4d06f';
 
       ctx.save();
       ctx.globalAlpha = 0.22 + progress * 0.52;
@@ -1367,7 +1447,9 @@
           drop.type === 'mine' ? '×'
             : drop.type === 'health' ? '+'
               : drop.type === 'speed' ? '»'
-                : 'R',
+                : drop.type === 'carry2' ? '+2'
+                  : drop.type === 'carry3' ? '+3'
+                    : 'R',
           0,
           0
         );
@@ -1380,7 +1462,26 @@
   drawItems = function soloDrawItems() {
     if (soloActive()) drawSoloMines();
     baseDrawItems();
-    if (soloActive()) drawSoloDrops();
+    if (soloActive()) {
+      for (const item of items) {
+        if (!['carry2', 'carry3'].includes(item.type) || !isItemVisible(item)) continue;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(item.x, item.y, item.r + 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#d99cff';
+        ctx.fill();
+        ctx.strokeStyle = '#24152f';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#24152f';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.type === 'carry3' ? '+3' : '+2', item.x, item.y);
+        ctx.restore();
+      }
+      drawSoloDrops();
+    }
   };
 
   const baseDrawWorldEffects = drawWorldEffects;
