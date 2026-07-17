@@ -126,6 +126,7 @@ function hideAllAppOverlays() {
   document.querySelector('#roundScreen')?.classList.add('hidden');
   document.querySelector('#soloBriefingScreen')?.classList.add('hidden');
   document.querySelector('#soloUpgradeScreen')?.classList.add('hidden');
+  document.querySelector('#soloIntroOverlay')?.classList.add('hidden');
   document.querySelector('#pauseMenu')?.classList.add('hidden');
   document.querySelector('#multiplayerLobbyScreen')?.classList.add('hidden');
 }

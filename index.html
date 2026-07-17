@@ -23,9 +23,9 @@
         <p class="tagline">Choose your battle.</p>
         <div class="mode-actions">
           <button id="soloModeBtn" class="primary-action mode-primary" type="button">SOLO WORD HUNT</button>
-          <!-- <button id="multiplayerModeBtn" class="mode-secondary mode-multiplayer" type="button">MULTIPLAYER</button> -->
+          <button id="multiplayerModeBtn" class="mode-secondary mode-multiplayer" type="button">MULTIPLAYER</button>
         </div>
-        <!-- <p class="match-meta">Multiplayer starts after 15 seconds. Empty roles become bots.</p> -->
+        <p class="match-meta">Multiplayer starts after 15 seconds. Empty roles become bots.</p>
         <div id="webLivePanel" class="web-live-panel hidden" aria-label="Multiplayer player name">
           <div class="web-guest-row">
             <label for="webNicknameInput">PLAYER NAME</label>
@@ -73,20 +73,41 @@
           <strong id="soloWordProgress" class="solo-word-progress">WORD 1/5</strong>
           <strong id="soloCoverStatus" class="solo-cover-status hidden">HIDDEN</strong>
           <div class="solo-stat"><span>HUNTERS</span><strong id="soloKillsText">0</strong></div>
-          <div id="soloHintPanel" class="solo-hint-panel hidden" aria-live="polite">
-            <span class="solo-hint-heading">COLLECTED CLUES</span>
-            <div id="soloHintList" class="solo-hint-list"></div>
-          </div>
         </section>
         <section class="team blue panel">
           <div class="head b">BLUE</div>
           <div class="label">JUMBLED — FORM A WORD</div>
           <div class="scramble" id="bs"></div>
+          <div id="soloHintIndicator" class="solo-hint-indicator" aria-label="Hints collected">
+            <span class="solo-hint-magnifier" aria-hidden="true"></span>
+            <strong id="soloHintCount">0/5</strong>
+          </div>
         </section>
         <section class="team red panel">
           <div class="head r">RED</div>
           <div class="label">JUMBLED — FORM A WORD</div>
           <div class="scramble" id="rs"></div>
+        </section>
+        <div id="soloHintToast" class="solo-hint-toast hidden" aria-live="assertive" aria-atomic="true">
+          <span id="soloHintToastLabel" class="solo-hint-toast-label">HINT</span>
+          <strong id="soloHintToastText" class="solo-hint-toast-text"></strong>
+        </div>
+      </div>
+
+      <div id="soloIntroOverlay" class="solo-intro-overlay hidden" role="dialog" aria-modal="true"
+        aria-labelledby="soloIntroTitle" aria-describedby="soloIntroText">
+        <div class="solo-intro-pointer" aria-hidden="true">
+          <span></span>
+          <strong>SECRET WORD LETTERS</strong>
+        </div>
+        <section class="solo-intro-card">
+          <p id="soloIntroKicker" class="solo-intro-kicker">SOLO WORD HUNT</p>
+          <h2 id="soloIntroTitle">THE AIM</h2>
+          <p id="soloIntroText">Collect letters until you form a secret word.</p>
+          <div id="soloIntroDots" class="solo-intro-dots" aria-label="Tutorial step 1 of 3">
+            <span class="active"></span><span></span><span></span>
+          </div>
+          <button id="soloIntroNextBtn" class="primary-action solo-intro-next" type="button">SHOW ME</button>
         </section>
       </div>
 

@@ -171,8 +171,18 @@
   const soloWordProgressEl = document.querySelector('#soloWordProgress');
   const soloKillsTextEl = document.querySelector('#soloKillsText');
   const soloCoverStatusEl = document.querySelector('#soloCoverStatus');
-  const soloHintPanelEl = document.querySelector('#soloHintPanel');
-  const soloHintListEl = document.querySelector('#soloHintList');
+  const soloHintIndicatorEl = document.querySelector('#soloHintIndicator');
+  const soloHintCountEl = document.querySelector('#soloHintCount');
+  const soloHintToastEl = document.querySelector('#soloHintToast');
+  const soloHintToastLabelEl = document.querySelector('#soloHintToastLabel');
+  const soloHintToastTextEl = document.querySelector('#soloHintToastText');
+  const soloIntroOverlayEl = document.querySelector('#soloIntroOverlay');
+  const soloIntroKickerEl = document.querySelector('#soloIntroKicker');
+  const soloIntroTitleEl = document.querySelector('#soloIntroTitle');
+  const soloIntroTextEl = document.querySelector('#soloIntroText');
+  const soloIntroDotsEl = document.querySelector('#soloIntroDots');
+  const soloIntroNextBtnEl = document.querySelector('#soloIntroNextBtn');
+  const soloTargetPanelEl = document.querySelector('.team.blue');
   const upgradeScreenEl = document.querySelector('#soloUpgradeScreen');
   const upgradeChoicesEl = document.querySelector('#soloUpgradeChoices');
   const upgradeSummaryEl = document.querySelector('#soloUpgradeSummary');
@@ -182,6 +192,128 @@
   const soloSpawnWarnings = [];
   const soloMazeGhostWalls = [];
   const soloHints = [];
+  let soloHintToastTimer = 0;
+  let soloIntroStep = 0;
+  let soloIntroShownThisSession = false;
+
+  const SOLO_INTRO_STEPS = Object.freeze([
+    Object.freeze({
+      kicker: 'SOLO WORD HUNT',
+      title: 'THE AIM',
+      text: 'Collect letters until you form a secret word.',
+      button: 'SHOW ME',
+      target: false,
+    }),
+    Object.freeze({
+      kicker: 'YOUR WORD CLUE',
+      title: 'WATCH THE UPPER RIGHT',
+      text: 'These jumbled letters make up the secret word. Collect matching letter tiles and place them in the slots.',
+      button: 'NEXT',
+      target: true,
+    }),
+    Object.freeze({
+      kicker: 'YOU ARE READY',
+      title: 'MOVE. COLLECT. FIRE.',
+      text: 'Walk over letters to collect them. You can still shoot while carrying letters. Scroll cards reveal temporary hints.',
+      button: 'START HUNT',
+      target: false,
+    }),
+  ]);
+
+  function resetSoloIntroInput() {
+    for (const key of Object.keys(keys || {})) delete keys[key];
+    if (typeof mobileInput !== 'undefined') {
+      mobileInput.x = 0;
+      mobileInput.y = 0;
+      mobileInput.active = false;
+    }
+    if (typeof spaceHeld !== 'undefined') spaceHeld = false;
+    if (typeof resetJoystick === 'function') resetJoystick();
+    globalThis.setInnerSentryFireHeld?.(false);
+  }
+
+  function renderSoloIntroStep() {
+    const step = SOLO_INTRO_STEPS[soloIntroStep] || SOLO_INTRO_STEPS[0];
+    if (soloIntroKickerEl) soloIntroKickerEl.textContent = step.kicker;
+    if (soloIntroTitleEl) soloIntroTitleEl.textContent = step.title;
+    if (soloIntroTextEl) soloIntroTextEl.textContent = step.text;
+    if (soloIntroNextBtnEl) soloIntroNextBtnEl.textContent = step.button;
+
+    soloIntroOverlayEl?.classList.toggle('show-target', step.target);
+    soloTargetPanelEl?.classList.toggle('solo-intro-target-zoom', step.target);
+
+    const dots = soloIntroDotsEl?.querySelectorAll('span') || [];
+    dots.forEach((dot, index) => dot.classList.toggle('active', index === soloIntroStep));
+    soloIntroDotsEl?.setAttribute(
+      'aria-label',
+      `Tutorial step ${soloIntroStep + 1} of ${SOLO_INTRO_STEPS.length}`
+    );
+  }
+
+  function closeSoloIntro() {
+    soloIntroOverlayEl?.classList.add('hidden');
+    soloIntroOverlayEl?.classList.remove('show-target');
+    soloTargetPanelEl?.classList.remove('solo-intro-target-zoom');
+    document.documentElement.classList.remove('solo-intro-open');
+    resetSoloIntroInput();
+    state.paused = false;
+    if (timerEl) {
+      timerEl.textContent = `${Math.floor(state.seconds / 60)}:${String(state.seconds % 60).padStart(2, '0')}`;
+    }
+    globalThis.refreshMobileLayout?.();
+    msg('Find the letters. Stay alive.');
+  }
+
+  function showSoloIntro() {
+    if (soloIntroShownThisSession || !soloActive() || !soloIntroOverlayEl) return;
+    soloIntroShownThisSession = true;
+    soloIntroStep = 0;
+    state.paused = true;
+    if (timerEl) timerEl.textContent = 'READY';
+    resetSoloIntroInput();
+    document.documentElement.classList.add('solo-intro-open');
+    soloIntroOverlayEl.classList.remove('hidden');
+    renderSoloIntroStep();
+    soloIntroNextBtnEl?.focus({ preventScroll: true });
+  }
+
+  soloIntroNextBtnEl?.addEventListener('click', () => {
+    if (soloIntroStep < SOLO_INTRO_STEPS.length - 1) {
+      soloIntroStep += 1;
+      renderSoloIntroStep();
+      globalThis.playGameSound?.('uiClick');
+      return;
+    }
+    globalThis.playGameSound?.('uiClick');
+    closeSoloIntro();
+  });
+
+  function clearSoloHintToast() {
+    if (soloHintToastTimer) {
+      clearTimeout(soloHintToastTimer);
+      soloHintToastTimer = 0;
+    }
+    soloHintToastEl?.classList.remove('is-visible');
+    soloHintToastEl?.classList.add('hidden');
+  }
+
+  function showSoloHintToast(clue) {
+    if (!soloHintToastEl || !clue) return;
+    if (soloHintToastTimer) clearTimeout(soloHintToastTimer);
+    if (soloHintToastLabelEl) soloHintToastLabelEl.textContent = clue.label || 'HINT';
+    if (soloHintToastTextEl) soloHintToastTextEl.textContent = clue.text || '';
+
+    soloHintToastEl.classList.remove('hidden', 'is-visible');
+    // Restart the entrance/fade animation when another scroll is collected.
+    void soloHintToastEl.offsetWidth;
+    soloHintToastEl.classList.add('is-visible');
+
+    soloHintToastTimer = window.setTimeout(() => {
+      soloHintToastEl.classList.remove('is-visible');
+      soloHintToastEl.classList.add('hidden');
+      soloHintToastTimer = 0;
+    }, 4200);
+  }
 
   const upgradeDefinitions = Object.freeze([
     {
@@ -321,7 +453,6 @@
       letterCargo: [],
       activeHint: '',
       hintsFound: [],
-      hintHudSignature: '',
       mazePhase: 'ACTIVE',
       mazeTimer: 18,
       mazePatternIndex: 0,
@@ -911,22 +1042,8 @@
     const foundHints = Array.isArray(state.soloRun.hintsFound)
       ? state.soloRun.hintsFound
       : [];
-    soloHintPanelEl?.classList.toggle('hidden', foundHints.length === 0);
-    const hintSignature = foundHints.map(hint => `${hint.id}:${hint.text}`).join('|');
-    if (soloHintListEl && hintSignature !== state.soloRun.hintHudSignature) {
-      soloHintListEl.replaceChildren();
-      for (const hint of foundHints) {
-        const line = document.createElement('div');
-        line.className = 'solo-hint-line';
-        const label = document.createElement('strong');
-        label.textContent = `${hint.label}:`;
-        const text = document.createElement('span');
-        text.textContent = hint.text;
-        line.append(label, text);
-        soloHintListEl.append(line);
-      }
-      state.soloRun.hintHudSignature = hintSignature;
-    }
+    if (soloHintCountEl) soloHintCountEl.textContent = `${foundHints.length}/5`;
+    soloHintIndicatorEl?.classList.toggle('has-hints', foundHints.length > 0);
 
     if (soloKillsTextEl) soloKillsTextEl.textContent = `${state.soloRun.kills}`;
     const hiddenInTree = player.coverTreeId != null;
@@ -1038,9 +1155,9 @@
     soloSpawnWarnings.length = 0;
     run.activeHint = '';
     run.hintsFound = [];
-    run.hintHudSignature = '';
-    soloHintListEl?.replaceChildren();
-    soloHintPanelEl?.classList.add('hidden');
+    if (soloHintCountEl) soloHintCountEl.textContent = '0/5';
+    soloHintIndicatorEl?.classList.remove('has-hints');
+    clearSoloHintToast();
 
     for (const hunter of [...bots]) {
       if (hunter.soloShooter) removeSoloHunter(hunter);
@@ -1135,6 +1252,7 @@
     state.demoMatch.finished = false;
     state.demoMatch.resolving = false;
     globalThis.startSoloWord?.(0);
+    showSoloIntro();
   }
 
   function openSoloBriefing() {
@@ -1220,9 +1338,8 @@
     run.activeHint = clue.text;
     if (!run.hintsFound.some(found => found.id === clue.id)) {
       run.hintsFound.push(clue);
-      run.hintHudSignature = '';
     }
-    msg(`${clue.label}: ${clue.text}`);
+    showSoloHintToast(clue);
     return true;
   }
 
@@ -1521,32 +1638,68 @@
     }
   }
 
+  function drawSoloHintScroll(label) {
+    const cardLabel = label || 'HINT';
+    const width = clamp(66 + cardLabel.length * 5.5, 92, 130);
+    const half = width / 2;
+
+    // Soft halo so the parchment remains visible over trees and walls.
+    ctx.fillStyle = 'rgba(241, 202, 92, 0.15)';
+    ctx.fillRect(-half - 7, -23, width + 14, 46);
+
+    // Rolled parchment ends.
+    ctx.fillStyle = '#c49a55';
+    ctx.strokeStyle = '#59401f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(-half + 7, 0, 8, 17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(half - 7, 0, 8, 17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Main paper sheet.
+    ctx.fillStyle = '#efd9a2';
+    ctx.strokeStyle = '#6b4b23';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-half + 8, -15);
+    ctx.quadraticCurveTo(-half + 15, -12, -half + 18, -15);
+    ctx.lineTo(half - 18, -15);
+    ctx.quadraticCurveTo(half - 14, -12, half - 8, -15);
+    ctx.lineTo(half - 8, 15);
+    ctx.quadraticCurveTo(half - 15, 12, half - 18, 15);
+    ctx.lineTo(-half + 18, 15);
+    ctx.quadraticCurveTo(-half + 14, 12, -half + 8, 15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Ink and small wax mark.
+    ctx.fillStyle = '#6b1f24';
+    ctx.beginPath();
+    ctx.arc(half - 18, 8, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#6a4a24';
+    ctx.font = 'bold 8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('CLUE', 0, -6);
+    ctx.fillStyle = '#2f2416';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(cardLabel, 0, 6);
+  }
+
   function drawSoloHints() {
     if (!soloActive()) return;
     for (const hint of soloHints) {
       const pulse = 1 + Math.sin(simTime * 4 + hint.phase) * 0.035;
-      const cardLabel = hint.label || 'HINT';
-      const width = clamp(54 + cardLabel.length * 7, 82, 132);
       ctx.save();
       ctx.translate(hint.x, hint.y);
       ctx.scale(pulse, pulse);
-      ctx.fillStyle = 'rgba(79, 211, 190, 0.16)';
-      ctx.fillRect(-width / 2 - 5, -22, width + 10, 44);
-      ctx.strokeStyle = 'rgba(112, 239, 218, 0.75)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-width / 2 - 5, -22, width + 10, 44);
-      ctx.fillStyle = '#173c38';
-      ctx.fillRect(-width / 2, -17, width, 34);
-      ctx.strokeStyle = '#70efda';
-      ctx.strokeRect(-width / 2, -17, width, 34);
-      ctx.fillStyle = '#a8fff1';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('HINT', 0, -7);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(cardLabel, 0, 7);
+      drawSoloHintScroll(hint.label || 'HINT');
       ctx.restore();
     }
   }
@@ -1595,20 +1748,7 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(drop.char || '?', 0, 1);
       } else if (drop.type === 'hint') {
-        const cardLabel = drop.hintLabel || 'HINT';
-        const width = clamp(54 + cardLabel.length * 7, 82, 132);
-        ctx.fillStyle = '#173c38';
-        ctx.fillRect(-width / 2, -17, width, 34);
-        ctx.strokeStyle = '#70efda';
-        ctx.strokeRect(-width / 2, -17, width, 34);
-        ctx.fillStyle = '#a8fff1';
-        ctx.font = 'bold 9px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('HINT', 0, -7);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText(cardLabel, 0, 7);
+        drawSoloHintScroll(drop.hintLabel || 'HINT');
       } else {
         ctx.beginPath();
         ctx.arc(0, 0, 13, 0, Math.PI * 2);
@@ -1770,10 +1910,14 @@
     removeSoloMazeWalls();
     soloHudEl?.classList.add('hidden');
     soloCoverStatusEl?.classList.add('hidden');
-    soloHintPanelEl?.classList.add('hidden');
-    soloHintListEl?.replaceChildren();
+    if (soloHintCountEl) soloHintCountEl.textContent = '0/5';
+    soloHintIndicatorEl?.classList.remove('has-hints');
+    clearSoloHintToast();
+    soloIntroOverlayEl?.classList.add('hidden');
+    soloIntroOverlayEl?.classList.remove('show-target');
+    soloTargetPanelEl?.classList.remove('solo-intro-target-zoom');
     upgradeScreenEl?.classList.add('hidden');
-    document.documentElement.classList.remove('solo-running');
+    document.documentElement.classList.remove('solo-running', 'solo-intro-open');
     const blueLabel = document.querySelector('.team.blue .label');
     if (blueLabel) blueLabel.textContent = 'JUMBLED — FORM A WORD';
     document.querySelector('.team.red')?.removeAttribute('aria-hidden');

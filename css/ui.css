@@ -1323,46 +1323,127 @@ html.game-started .game-utilities {
   background: #ef5e5e;
 }
 
-.solo-hint-panel {
-  grid-column: 1 / -1;
-  width: min(350px, 42vw);
-  display: grid;
-  gap: 4px;
-  padding-top: 6px;
-  border-top: 1px solid #39414b;
+.solo-hint-indicator {
+  display: none;
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 3px 7px 3px 6px;
+  border: 1px solid #d7b86a88;
+  border-radius: 999px;
+  background: #171b20e8;
+  color: #e8d39c;
+  box-shadow: 0 4px 10px #0007;
+  font-size: 9px;
+  line-height: 1;
+  pointer-events: none;
 }
 
-.solo-hint-panel.hidden {
+html.solo-running .team.blue .solo-hint-indicator {
+  display: flex;
+}
+
+.solo-hint-indicator.has-hints {
+  border-color: #f1ca5ccc;
+  color: #fff0b5;
+}
+
+.solo-hint-magnifier {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.solo-hint-magnifier::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 2px;
+  right: -5px;
+  bottom: -3px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: rotate(45deg);
+  transform-origin: left center;
+}
+
+.solo-hint-toast {
+  position: absolute;
+  top: max(52px, calc(env(safe-area-inset-top) + 44px));
+  left: 50%;
+  z-index: 260;
+  width: min(560px, calc(100% - 170px));
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 9px 18px 10px;
+  border: 2px solid #755525;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f1dda9 0%, #dfbd79 100%);
+  color: #2f2416;
+  box-shadow: 0 8px 24px #000a, inset 0 0 0 2px #fff4c655;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -10px) scale(.97);
+}
+
+.solo-hint-toast::before,
+.solo-hint-toast::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: calc(100% + 10px);
+  border: 2px solid #68481f;
+  border-radius: 50%;
+  background: #c9964f;
+  transform: translateY(-50%);
+}
+
+.solo-hint-toast::before { left: -8px; }
+.solo-hint-toast::after { right: -8px; }
+
+.solo-hint-toast.hidden {
   display: none !important;
 }
 
-.solo-hint-heading {
-  color: #70efda;
-  font-size: 8px;
-  font-weight: 950;
-  letter-spacing: .8px;
-}
-
-.solo-hint-list {
+.solo-hint-toast.is-visible {
   display: grid;
-  gap: 3px;
+  animation: soloHintToastPop 4.2s ease both;
 }
 
-.solo-hint-line {
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
-  color: #e9eef3;
+.solo-hint-toast-label {
+  color: #7b2529;
   font-size: 9px;
-  font-weight: 700;
-  line-height: 1.28;
+  font-weight: 950;
+  letter-spacing: .9px;
 }
 
-.solo-hint-line strong {
-  flex: 0 0 auto;
-  color: #a8fff1;
-  font-size: inherit;
-  letter-spacing: .35px;
+.solo-hint-toast-text {
+  font-size: clamp(11px, 1.45vw, 15px);
+  line-height: 1.25;
+}
+
+@keyframes soloHintToastPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(.96);
+  }
+  10%, 78% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -6px) scale(.98);
+  }
 }
 
 .solo-word-progress {
@@ -1511,21 +1592,6 @@ html.solo-running #wrap {
     font-size: 9px;
   }
 
-  html.touch-ui .solo-hint-panel {
-    width: min(250px, 46vw);
-    gap: 2px;
-    padding-top: 4px;
-  }
-
-  html.touch-ui .solo-hint-heading,
-  html.touch-ui .solo-hint-line {
-    font-size: 7px;
-  }
-
-  html.touch-ui .solo-hint-list {
-    gap: 2px;
-  }
-
   html.touch-ui.solo-running .team.blue {
     top: max(7px, env(safe-area-inset-top));
     left: max(7px, env(safe-area-inset-left));
@@ -1648,15 +1714,6 @@ html.solo-running #wrap {
     right: max(7px, env(safe-area-inset-right));
   }
 
-  html.touch-ui.solo-running .solo-hint-panel {
-    width: min(225px, 43vw);
-  }
-
-  html.touch-ui.solo-running .solo-hint-line {
-    font-size: 6.5px;
-    line-height: 1.18;
-  }
-
   html.touch-ui.solo-running .game-utilities {
     top: max(43px, calc(env(safe-area-inset-top) + 37px));
   }
@@ -1664,6 +1721,34 @@ html.solo-running #wrap {
   html.touch-ui.solo-running .mobile-action {
     right: max(19px, calc(env(safe-area-inset-right) + 12px));
     bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px));
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui.solo-running .solo-hint-toast {
+    top: max(42px, calc(env(safe-area-inset-top) + 35px));
+    width: min(520px, calc(100% - 150px));
+    padding: 7px 15px 8px;
+  }
+
+  html.touch-ui.solo-running .team.blue .solo-hint-indicator {
+    top: calc(100% + 4px);
+    right: 2px;
+    min-height: 21px;
+    padding: 2px 6px 2px 5px;
+    font-size: 8px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 390px) {
+  html.touch-ui.solo-running .solo-hint-toast {
+    top: max(36px, calc(env(safe-area-inset-top) + 29px));
+    width: min(470px, calc(100% - 140px));
+    padding-block: 6px;
+  }
+
+  html.touch-ui.solo-running .solo-hint-toast-text {
+    font-size: 10px;
   }
 }
 
@@ -2593,5 +2678,274 @@ html.touch-ui .game-utilities .utility-button {
     position: static !important;
     width: 34px !important;
     height: 34px !important;
+  }
+}
+
+/* Solo first-run walkthrough --------------------------------------------
+   The simulation and countdown are paused while this short, in-arena guide
+   introduces the objective and points at the real target-letter panel. */
+html.solo-running .solo-hud {
+  left: 10px;
+  right: auto;
+}
+
+html.solo-running .team.blue {
+  left: auto;
+  right: 58px;
+}
+
+.solo-intro-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 410;
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 4vw, 42px);
+  background: rgba(8, 11, 15, .82);
+  pointer-events: auto;
+  isolation: isolate;
+}
+
+.solo-intro-overlay.hidden {
+  display: none !important;
+}
+
+.solo-intro-overlay.show-target {
+  place-items: end start;
+  background:
+    radial-gradient(
+      ellipse 185px 92px at calc(100% - 155px) 53px,
+      transparent 0 62%,
+      rgba(8, 11, 15, .18) 67%,
+      rgba(8, 11, 15, .86) 100%
+    );
+}
+
+.solo-intro-card {
+  width: min(520px, calc(100% - 20px));
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: clamp(20px, 4vw, 34px);
+  border: 1px solid #68717d;
+  border-radius: 12px;
+  background: #171c22f5;
+  box-shadow: 0 20px 50px #000b;
+  color: #f4f6f8;
+  text-align: center;
+}
+
+.solo-intro-overlay.show-target .solo-intro-card {
+  width: min(470px, 55%);
+  margin: 0 0 clamp(25px, 8vh, 80px) clamp(4px, 3vw, 36px);
+}
+
+.solo-intro-kicker {
+  margin: 0;
+  color: #f1ca5c;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 1.25px;
+}
+
+.solo-intro-card h2 {
+  margin: 0;
+  font-size: clamp(25px, 5vw, 42px);
+  letter-spacing: -.7px;
+}
+
+.solo-intro-card p:not(.solo-intro-kicker) {
+  max-width: 440px;
+  margin: 0;
+  color: #d7dde4;
+  font-size: clamp(13px, 1.8vw, 17px);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.solo-intro-dots {
+  display: flex;
+  gap: 7px;
+  margin: 4px 0 2px;
+}
+
+.solo-intro-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #59616c;
+  transition: width .18s ease, background .18s ease;
+}
+
+.solo-intro-dots span.active {
+  width: 22px;
+  background: #f1ca5c;
+}
+
+.solo-intro-next {
+  min-width: 175px;
+  margin-top: 3px;
+}
+
+.solo-intro-pointer {
+  display: none;
+  position: absolute;
+  top: 103px;
+  right: 78px;
+  z-index: 2;
+  align-items: center;
+  gap: 9px;
+  color: #fff2b6;
+  filter: drop-shadow(0 4px 7px #000c);
+  pointer-events: none;
+}
+
+.solo-intro-overlay.show-target .solo-intro-pointer {
+  display: flex;
+  animation: soloIntroPointerBob 1s ease-in-out infinite alternate;
+}
+
+.solo-intro-pointer span {
+  width: 46px;
+  height: 3px;
+  position: relative;
+  border-radius: 999px;
+  background: currentColor;
+  transform: rotate(-42deg);
+  transform-origin: right center;
+}
+
+.solo-intro-pointer span::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-left: 3px solid currentColor;
+  border-bottom: 3px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.solo-intro-pointer strong {
+  max-width: 120px;
+  font-size: 9px;
+  line-height: 1.15;
+  letter-spacing: .8px;
+  text-align: right;
+}
+
+html.solo-intro-open .team.blue.solo-intro-target-zoom {
+  animation: soloIntroTargetZoom 1.05s ease-in-out infinite alternate;
+  box-shadow: 0 0 0 3px #f1ca5c, 0 0 34px #f1ca5c99, 0 8px 20px #000a;
+  transform-origin: top right;
+}
+
+html.solo-intro-open .mobile-controls,
+html.solo-intro-open .game-utilities {
+  visibility: hidden;
+}
+
+@keyframes soloIntroTargetZoom {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.11); }
+}
+
+@keyframes soloIntroPointerBob {
+  from { transform: translate(-2px, 2px); }
+  to { transform: translate(4px, -4px); }
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  html.touch-ui.solo-running .solo-hud {
+    left: max(7px, env(safe-area-inset-left));
+    right: auto;
+    width: min(340px, 43vw);
+  }
+
+  html.touch-ui.solo-running .team.blue {
+    top: max(7px, env(safe-area-inset-top));
+    left: auto;
+    right: max(58px, calc(env(safe-area-inset-right) + 52px));
+    width: min(230px, 29vw);
+    min-height: 0;
+  }
+
+  html.touch-ui.solo-running .timer {
+    top: calc(max(7px, env(safe-area-inset-top)) + 51px);
+  }
+
+  .solo-intro-overlay {
+    padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  }
+
+  .solo-intro-card {
+    width: min(500px, 72vw);
+    gap: 6px;
+    padding: 14px 20px;
+  }
+
+  .solo-intro-overlay.show-target .solo-intro-card {
+    width: min(460px, 58vw);
+    margin: 0 0 max(12px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+  }
+
+  .solo-intro-card h2 {
+    font-size: clamp(22px, 7dvh, 34px);
+  }
+
+  .solo-intro-card p:not(.solo-intro-kicker) {
+    font-size: clamp(10px, 2.5dvh, 14px);
+  }
+
+  .solo-intro-next {
+    min-width: 150px;
+    min-height: 40px;
+  }
+
+  .solo-intro-pointer {
+    top: max(84px, calc(env(safe-area-inset-top) + 77px));
+    right: max(72px, calc(env(safe-area-inset-right) + 65px));
+  }
+
+  .solo-intro-overlay.show-target {
+    background:
+      radial-gradient(
+        ellipse 155px 76px at calc(100% - max(150px, 19vw)) max(43px, calc(env(safe-area-inset-top) + 36px)),
+        transparent 0 62%,
+        rgba(8, 11, 15, .18) 67%,
+        rgba(8, 11, 15, .88) 100%
+      );
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  html.touch-ui.solo-running .solo-hud {
+    left: max(7px, env(safe-area-inset-left));
+    right: max(98px, calc(env(safe-area-inset-right) + 90px));
+    width: auto;
+  }
+
+  html.touch-ui.solo-running .team.blue {
+    top: calc(max(7px, env(safe-area-inset-top)) + 84px);
+    left: max(7px, env(safe-area-inset-left));
+    right: max(7px, env(safe-area-inset-right));
+    width: auto;
+  }
+
+  .solo-intro-overlay.show-target {
+    place-items: end center;
+    background: rgba(8, 11, 15, .82);
+  }
+
+  .solo-intro-overlay.show-target .solo-intro-card {
+    width: min(420px, calc(100% - 22px));
+    margin: 0 0 max(20px, env(safe-area-inset-bottom));
+  }
+
+  .solo-intro-pointer {
+    top: calc(max(7px, env(safe-area-inset-top)) + 137px);
+    right: 25px;
   }
 }

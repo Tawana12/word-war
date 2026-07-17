@@ -10,6 +10,7 @@ const mainMenuBtnEl = document.querySelector('#mainMenuBtn');
 state.paused = false;
 
 function canPauseGame() {
+  if (document.documentElement.classList.contains('solo-intro-open')) return false;
   return Boolean(
     player &&
     !state.over &&
@@ -68,6 +69,7 @@ mainMenuBtnEl?.addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', event => {
+  if (document.documentElement.classList.contains('solo-intro-open')) return;
   if (!['Escape', 'KeyP'].includes(event.code)) return;
   if (event.repeat) return;
 
